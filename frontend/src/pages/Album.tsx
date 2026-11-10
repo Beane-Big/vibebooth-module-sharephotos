@@ -7,7 +7,6 @@ import {
   formatBytes,
   formatDate,
   shareLink,
-  shotDateText,
   type Album as AlbumData,
   type AlbumDetail,
   type AlbumInput,
@@ -93,7 +92,7 @@ export default function Album({ id }: { id: number }) {
       <section className="album-head">
         <h1 className="page-title">{a.title}</h1>
         <span className="muted meta">
-          {[shotDateText(a.shotDate), !a.mine && a.ownerName && `${a.ownerName} 分享`, expiryText(a)]
+          {[!a.mine && a.ownerName && `${a.ownerName} 分享`, expiryText(a)]
             .filter(Boolean)
             .map((text, i) => (
               <span key={i}>{text}</span>
@@ -247,9 +246,9 @@ function SharePanel({ album: a, save }: { album: AlbumData; save: Save }) {
   );
 }
 
-// InfoPanel 改相册的名称、日期、说明、排序和到期后保留几天，最下面是删除相册。
+// InfoPanel 改相册的名称、说明、排序和到期后保留几天，最下面是删除相册。
 function InfoPanel({ album: a, save }: { album: AlbumData; save: Save }) {
-  const [form, setForm] = useState({ title: a.title, shotDate: a.shotDate, note: a.note, sort: a.sort, retainDays: a.retainDays });
+  const [form, setForm] = useState({ title: a.title, note: a.note, sort: a.sort, retainDays: a.retainDays });
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -281,10 +280,6 @@ function InfoPanel({ album: a, save }: { album: AlbumData; save: Save }) {
       <label className="field">
         名称
         <input value={form.title} maxLength={60} onChange={(e) => set({ title: e.target.value })} />
-      </label>
-      <label className="field">
-        拍摄日期
-        <input type="date" value={form.shotDate} onChange={(e) => set({ shotDate: e.target.value })} />
       </label>
       <label className="field">
         说明（家人打开时看到，可以不填）

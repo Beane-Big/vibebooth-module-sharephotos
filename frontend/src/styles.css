@@ -31,6 +31,8 @@
 [hidden] { display: none !important; }
 
 html, body, #root { height: 100%; }
+/* 卡片区域占满整个屏幕宽，算上滚动条会多出一点，不让页面因此能左右滚。 */
+body { overflow-x: clip; }
 
 body {
   margin: 0;
@@ -218,7 +220,6 @@ textarea, select {
   color: var(--text);
 }
 textarea { resize: vertical; }
-input[type="date"] { flex: none; }
 
 /* 相册列表：每个相册一张卡片，左边封面，右边名称和有效期；宽屏两列。 */
 .albums { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); gap: 12px; }
@@ -241,7 +242,7 @@ input[type="date"] { flex: none; }
 .album-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 4px 0; }
 .album-text .item-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* 相册页最上面：名称、日期和有效期、说明。 */
+/* 相册页最上面：名称、有效期、说明。 */
 .album-head { display: flex; flex-direction: column; gap: 6px; padding: 0 4px; }
 .album-head .page-title { font-size: 24px; overflow-wrap: anywhere; }
 .note { margin: 4px 0 0; white-space: pre-line; line-height: 1.6; }
@@ -265,21 +266,92 @@ button.link.danger-link { color: var(--danger); }
 .failed-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .failed-list li { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; }
 
-/* 照片墙：正方形缩略图铺满一行，手机上一行三张。 */
+/* 照片墙的工具条：张数、卡片/平铺切换、选择、下载全部。 */
 .gallery { gap: 12px; }
 .gallery > p { margin: 0; }
 .gallery-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 0 4px; }
-.grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
-@media (max-width: 600px) {
-  .grid { grid-template-columns: repeat(3, 1fr); gap: 3px; }
+/* 两个按钮拼成的切换开关，选中的那个是实心的。 */
+/* 底下的白色滑块跟着选中的那一边滑过去。 */
+.segmented { position: relative; display: inline-grid; grid-template-columns: 1fr 1fr; padding: 2px; border: 1px solid var(--border); border-radius: 999px; background: var(--glass); }
+.segmented::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc(50% - 2px);
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
+  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-.tile { position: relative; aspect-ratio: 1; border-radius: 6px; overflow: hidden; background: var(--bg); }
+.segmented.second::before { transform: translateX(100%); }
+.segmented button { position: relative; padding: 6px 14px; font-size: 14px; border-radius: 999px; background: none; color: var(--muted); transition: color 0.2s; }
+.segmented button.on { color: var(--text); }
+
+/* 平铺：按原比例的瀑布流，列数、间距、圆角由用户调整（行内样式）。 */
+.tiles-wrap { gap: 12px; }
+.tiles { display: flex; align-items: flex-start; }
+.tiles-col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.tile { position: relative; overflow: hidden; background: var(--bg); }
 .tile-button { display: block; width: 100%; height: 100%; padding: 0; border-radius: 0; background: none; }
 .tile img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform 0.15s, opacity 0.15s; }
 .tile-button:hover img { opacity: 0.9; }
-.tile.on img { transform: scale(0.88); border-radius: 4px; }
+.tile.on img { transform: scale(0.9); }
 .tile.on { background: color-mix(in srgb, var(--accent) 18%, var(--bg)); }
 .tile.pending { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 1px dashed var(--border); }
+.tiles-tools { display: flex; justify-content: flex-end; }
+/* 调整平铺的面板：三个滑块排成一行，窄屏上竖着排。 */
+.tuner {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px 32px;
+  padding: 18px 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  animation: drop-in 0.18s ease-out;
+}
+@media (max-width: 600px) {
+  .tuner { grid-template-columns: 1fr; }
+}
+.slider { display: flex; flex-direction: column; gap: 8px; font-size: 14px; text-align: center; }
+/* 滑块不用输入框的边框和底色。 */
+input[type="range"] { flex: none; padding: 0; border: 0; background: none; accent-color: var(--accent); }
+.slider input { width: 100%; }
+
+/* 卡片：一叠卡片斜着排成一条，正中这张正对着人。 */
+/* 卡片一直排到屏幕两边，不受内容宽度限制。 */
+.cards-stage {
+  position: relative;
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  overflow: hidden;
+  perspective: 1000px;
+  perspective-origin: 50% 45%;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
+}
+.cards-stage:active { cursor: grabbing; }
+.card3d {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--bg);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.18), 0 0 0 1px rgb(255 255 255 / 0.35) inset;
+  will-change: transform;
+}
+.card3d.focus { box-shadow: 0 24px 60px rgb(0 0 0 / 0.28); cursor: zoom-in; }
+.card3d img { display: block; width: 100%; height: 100%; object-fit: cover; pointer-events: auto; }
+.cards-caption { display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 14px; font-variant-numeric: tabular-nums; }
+.cards-caption input { width: min(100%, 360px); }
+
 /* 选择时右上角的圆圈，选中后变成主题色的勾。 */
 .check {
   position: absolute;
@@ -378,6 +450,19 @@ button.link.danger-link { color: var(--danger); }
   .share > :first-child:not(.hero) { margin-top: 24px; }
   .share .hero { border-radius: 0; max-height: 44vh; }
   .share > :not(.hero):not(.gallery) { margin-left: 16px; margin-right: 16px; }
-  .share .gallery-bar, .share .gallery > p { margin: 0 16px; }
+  .share .gallery-bar, .share .gallery > p, .share .cards-caption, .share .tiles-tools, .share .tuner { margin: 0 16px; }
   .share .select-bar { margin: 0 12px; }
+}
+
+/* 卡片和平铺之间切换的动画（见 components/transition.ts）：照片从旧位置平滑移到新位置，其他内容交叉淡入淡出。 */
+::view-transition-group(*) { animation-duration: 0.55s; animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1); }
+::view-transition-old(*), ::view-transition-new(*) { animation-duration: 0.45s; }
+/* 照片换了比例时（卡片是 5:4，平铺是原比例）两张快照叠在一起缩放，填满而不是拉伸。 */
+::view-transition-old(*), ::view-transition-new(*) { height: 100%; object-fit: cover; }
+::view-transition-old(root), ::view-transition-new(root) { object-fit: none; height: auto; }
+/* 不支持视图过渡的浏览器：新的看法从下面淡入。 */
+.gallery.switching .cards-wrap, .gallery.switching .tiles-wrap { animation: switch-in 0.4s ease-out; }
+@keyframes switch-in { from { opacity: 0; transform: translateY(12px) scale(0.98); } }
+@media (prefers-reduced-motion: reduce) {
+  .gallery.switching .cards-wrap, .gallery.switching .tiles-wrap { animation: none; }
 }

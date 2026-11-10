@@ -1,11 +1,10 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { ApiError, formatDate, shareUrls, shotDateText, type Photo } from "../api";
+import { ApiError, formatDate, shareUrls, type Photo } from "../api";
 import Gallery from "../components/Gallery";
 
 // 分享页看到的相册：没输提取码时没有 photos。
 type ShareInfo = {
   title: string;
-  shotDate: string;
   note: string;
   ownerName: string;
   expiresAt: string;
@@ -70,7 +69,6 @@ export default function ShareApp() {
         <h1 className="page-title">{info.title}</h1>
         <span className="muted meta">
           {[
-            shotDateText(info.shotDate),
             info.ownerName && `${info.ownerName} 分享`,
             `${info.count} 张`,
             `${formatDate(info.expiresAt)}前有效`,

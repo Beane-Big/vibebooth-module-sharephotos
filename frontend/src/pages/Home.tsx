@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { albumPath, albumUrls, api, expiryText, formatBytes, shotDateText, type Album } from "../api";
+import { albumPath, albumUrls, api, expiryText, formatBytes, type Album } from "../api";
 import { PhotoIcon, PlusIcon, SettingsIcon } from "../icons";
 import { can, getMe, type Me } from "../platform";
 
@@ -10,7 +10,6 @@ export default function Home() {
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
   const [title, setTitle] = useState("");
-  const [shotDate, setShotDate] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -28,7 +27,7 @@ export default function Home() {
     setBusy(true);
     setError("");
     try {
-      const a = await api.createAlbum({ title, shotDate });
+      const a = await api.createAlbum({ title });
       location.href = albumPath(a.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "新建失败");
@@ -62,13 +61,8 @@ export default function Home() {
               value={title}
               autoFocus
               maxLength={60}
-              placeholder="例如：外婆八十大寿"
               onChange={(e) => setTitle(e.target.value)}
             />
-          </label>
-          <label className="field">
-            拍摄日期（可以不填）
-            <input type="date" value={shotDate} onChange={(e) => setShotDate(e.target.value)} />
           </label>
           <div className="actions">
             <button type="submit" disabled={busy || !title.trim()}>
@@ -98,7 +92,6 @@ export default function Home() {
                 <span className="item-name">{a.title}</span>
                 <span className="muted meta">
                   {[
-                    shotDateText(a.shotDate),
                     `${a.ready} 张`,
                     a.ready > 0 && formatBytes(a.totalBytes),
                     !a.mine && a.ownerName && `${a.ownerName} 分享`,
