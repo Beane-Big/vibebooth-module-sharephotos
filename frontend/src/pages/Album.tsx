@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import {
+  albumPath,
   albumUrls,
   api,
   copyText,
@@ -13,11 +14,12 @@ import {
   type Photo,
 } from "../api";
 import Gallery from "../components/Gallery";
-import Uploader from "../components/Uploader";
-import { BackIcon } from "../icons";
+import { ImportButton, UploadStatus, useDropPhotos, useUploader } from "../components/Uploader";
+import { BackIcon, LinkIcon, SettingsIcon } from "../icons";
 
-// 一个相册的页面。所有能看的人都能看照片、下载原图；上传者本人还能上传、分享、续期、改信息和删除。
-export default function Album({ id }: { id: number }) {
+// 一个相册的页面。所有能看的人都能看照片、下载原图；上传者本人还能上传照片。
+// 分享、续期、改信息和删除放在相册的设置页（settings 为 true，网址 /a/<id>/settings/），从右上角的“设置”进入。
+export default function Album({ id, settings = false }: { id: number; settings?: boolean }) {
   const [detail, setDetail] = useState<AlbumDetail | null>(null);
   const [error, setError] = useState("");
 
@@ -60,6 +62,16 @@ export default function Album({ id }: { id: number }) {
     setDetail((d) => d && { ...d, photos: [...d.photos, p], album: { ...d.album, count: d.album.count + 1 } });
   }
 
+  const uploads = useUploader(id, uploaded);
+  const dropping = useDropPhotos(uploads, !settings && !!detail?.album.mine);
+  const [copied, setCopied] = useState("");
+
+  async function copyShare(a: AlbumData) {
+    const ok = await copyText(shareMessage(a));
+    setCopied(ok ? "ok" : "failed");
+    setTimeout(() => setCopied(""), ok ? 2500 : 6000);
+  }
+
   async function removePhoto(p: Photo) {
     setError("");
     try {
@@ -70,10 +82,15 @@ export default function Album({ id }: { id: number }) {
     }
   }
 
-  const back = (
-    <a className="pill" href="/apps/sharephotos/">
+  const back = settings ? (
+    <a className="pill" href={albumPath(id)}>
       <BackIcon />
-      全部相册
+      返回相册
+    </a>
+  ) : (
+    <a className="pill" href="/apps/sharephotos/" aria-label="全部相册">
+      <BackIcon />
+      <span className="narrow-hide">全部相册</span>
     </a>
   );
 
@@ -86,9 +103,54 @@ export default function Album({ id }: { id: number }) {
     );
 
   const a = detail.album;
+  // 不是上传者本人打开设置页时回到相册（后端也不让别人改）。
+  if (settings && !a.mine) {
+    location.replace(albumPath(id));
+    return null;
+  }
+  if (settings)
+    return (
+      <main className="content stack">
+        <div className="page-head">
+          {back}
+          <h1 className="page-title">相册设置</h1>
+        </div>
+        <section className="card stack">
+          <SharePanel album={a} save={save} />
+          <InfoPanel album={a} save={save} />
+        </section>
+      </main>
+    );
   return (
     <main className="content wide stack">
-      <div className="page-head">{back}</div>
+      <div className="page-head">
+        {back}
+        {a.mine && (
+          <div className="head-actions">
+            <button className="pill" onClick={() => copyShare(a)}>
+              <LinkIcon />
+              {copied === "ok" ? (
+                "已复制"
+              ) : (
+                <>
+                  复制<span className="wide-only">分享</span>链接
+                </>
+              )}
+            </button>
+            <ImportButton uploads={uploads} />
+            <a className="pill" href={albumPath(id) + "/settings/"}>
+              <SettingsIcon />
+              设置
+            </a>
+          </div>
+        )}
+      </div>
+      {copied === "failed" && <p className="error">这个浏览器不让复制，请到“设置”里长按链接手动复制。</p>}
+      {copied === "ok" && <p className="success">已复制链接{a.code ? "和提取码" : ""}，可以粘贴到微信里发给家人。</p>}
+      {dropping && <div className="drop-overlay">松开就导入这些照片</div>}
+      {a.mine && a.expired && (
+        <p className="hint">链接已经到期，家人打不开了。到右上角“设置”里续期，原来的链接马上恢复。</p>
+      )}
       <section className="album-head">
         <h1 className="page-title">{a.title}</h1>
         <span className="muted meta">
@@ -101,17 +163,11 @@ export default function Album({ id }: { id: number }) {
         {a.note && <p className="note">{a.note}</p>}
       </section>
 
-      {a.mine && <SharePanel album={a} save={save} />}
-      {a.mine && (
-        <section className="card stack">
-          <h1>上传照片</h1>
-          <Uploader albumId={a.id} onUploaded={uploaded} />
-        </section>
-      )}
+      {a.mine && <UploadStatus uploads={uploads} />}
 
       {error && <p className="error">{error}</p>}
       {detail.photos.length === 0 ? (
-        <p className="card muted">{a.mine ? "还没有照片，从上面上传。" : "这个相册里还没有照片。"}</p>
+        <p className="card muted">{a.mine ? "还没有照片，点右上角“导入”，或者把照片拖到这个页面上。" : "这个相册里还没有照片。"}</p>
       ) : (
         <Gallery
           photos={detail.photos}
@@ -120,13 +176,23 @@ export default function Album({ id }: { id: number }) {
           manage={a.mine ? { coverId: a.cover, onCover: (p) => save({ coverId: p.id }, setError), onDelete: removePhoto } : undefined}
         />
       )}
-
-      {a.mine && <InfoPanel album={a} save={save} />}
     </main>
   );
 }
 
 type Save = (input: AlbumInput, setErr: (msg: string) => void) => Promise<boolean>;
+
+// shareMessage 是发到微信里的一段话：名称、链接、提取码和有效期都写上，家人不用再问。
+function shareMessage(a: AlbumData) {
+  return [
+    `「${a.title}」的照片，点开就能看大图、下载原图：`,
+    a.token ? shareLink(a.token) : "",
+    a.code && `提取码：${a.code}`,
+    `${formatDate(a.expiresAt)}前有效`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
 
 // SharePanel 管分享：复制链接、提取码、有效期、换链接。只有上传者本人看得到。
 function SharePanel({ album: a, save }: { album: AlbumData; save: Save }) {
@@ -136,15 +202,7 @@ function SharePanel({ album: a, save }: { album: AlbumData; save: Save }) {
   const [confirmReset, setConfirmReset] = useState(false);
   const link = a.token ? shareLink(a.token) : "";
 
-  // 发到微信里的一段话：名称、链接、提取码和有效期都写上，家人不用再问。
-  const message = [
-    `「${a.title}」的照片，点开就能看大图、下载原图：`,
-    link,
-    a.code && `提取码：${a.code}`,
-    `${formatDate(a.expiresAt)}前有效`,
-  ]
-    .filter(Boolean)
-    .join("\n");
+  const message = shareMessage(a);
 
   async function copy(text: string, what: string) {
     const ok = await copyText(text);
@@ -153,8 +211,7 @@ function SharePanel({ album: a, save }: { album: AlbumData; save: Save }) {
   }
 
   return (
-    <section className="card stack">
-      <h1>分享给家人</h1>
+    <div className="stack">
       {a.expired && (
         <p className="hint">
           链接已经到期，家人打不开了。照片会在{formatDate(a.deleteAt)}删除；续期后原来的链接马上恢复。
@@ -242,11 +299,11 @@ function SharePanel({ album: a, save }: { album: AlbumData; save: Save }) {
         </div>
       </div>
       {error && <p className="error">{error}</p>}
-    </section>
+    </div>
   );
 }
 
-// InfoPanel 改相册的名称、说明、排序和到期后保留几天，最下面是删除相册。
+// InfoPanel 接在分享设置下面：改名称、说明、排序和到期后保留几天，最下面是删除相册。
 function InfoPanel({ album: a, save }: { album: AlbumData; save: Save }) {
   const [form, setForm] = useState({ title: a.title, note: a.note, sort: a.sort, retainDays: a.retainDays });
   const [message, setMessage] = useState("");
@@ -275,8 +332,7 @@ function InfoPanel({ album: a, save }: { album: AlbumData; save: Save }) {
   const set = (patch: Partial<typeof form>) => setForm({ ...form, ...patch });
 
   return (
-    <form className="card stack" onSubmit={submit}>
-      <h1>相册信息</h1>
+    <form className="stack settings-more" onSubmit={submit}>
       <label className="field">
         名称
         <input value={form.title} maxLength={60} onChange={(e) => set({ title: e.target.value })} />

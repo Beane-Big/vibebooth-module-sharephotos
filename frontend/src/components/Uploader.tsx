@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, type DragEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ApiError, formatBytes, uploadPhoto, type Photo } from "../api";
-import { UploadIcon } from "../icons";
+import { CloseIcon, UploadIcon } from "../icons";
 
 type Item = {
   id: number;
@@ -15,11 +15,10 @@ const parallel = 2;
 
 let nextId = 1;
 
-// Uploader 是上传照片的区域：点击选择或把照片拖进来，一次可以选一两百张，排队上传。
-// 每张传完就交给后端去掉位置信息、生成预览图；没传成的列出来，可以重试。
-export default function Uploader({ albumId, onUploaded }: { albumId: number; onUploaded: (p: Photo) => void }) {
+// useUploader 管上传队列：一次可以选一两百张，排队上传，每张传完就交给后端去掉位置信息、生成预览图；
+// 没传成的留在列表里，可以重试。相册页右上角的“导入”和拖到页面上的照片都交给它。
+export function useUploader(albumId: number, onUploaded: (p: Photo) => void) {
   const [items, setItems] = useState<Item[]>([]);
-  const [over, setOver] = useState(false);
   const [error, setError] = useState("");
   const queue = useRef<Item[]>([]);
   const active = useRef(0);
@@ -74,11 +73,7 @@ export default function Uploader({ albumId, onUploaded }: { albumId: number; onU
     pump();
   }
 
-  const done = items.filter((it) => it.status === "done").length;
-  const failed = items.filter((it) => it.status === "failed");
   const working = items.some((it) => it.status === "waiting" || it.status === "uploading");
-  const totalBytes = items.reduce((n, it) => n + it.file.size, 0);
-  const sentBytes = items.reduce((n, it) => n + it.file.size * (it.status === "done" ? 1 : it.progress), 0);
 
   // 还在传的时候关页面会中断上传，先提醒一下。
   useEffect(() => {
@@ -88,54 +83,65 @@ export default function Uploader({ albumId, onUploaded }: { albumId: number; onU
     return () => window.removeEventListener("beforeunload", warn);
   }, [working]);
 
-  function drop(e: DragEvent) {
-    e.preventDefault();
-    setOver(false);
-    add(e.dataTransfer.files);
-  }
+  return { items, error, working, add, retry, clear: () => {
+      setItems([]);
+      setError("");
+    },
+  };
+}
 
+export type Uploads = ReturnType<typeof useUploader>;
+
+// ImportButton 是右上角的“导入”：点了打开选照片。
+export function ImportButton({ uploads }: { uploads: Uploads }) {
   return (
-    <div className="stack files">
-      <label
-        className={"drop" + (over ? " over" : "")}
-        onDragOver={(e) => {
-          e.preventDefault();
-          setOver(true);
+    <label className="pill">
+      <input
+        className="sr-only"
+        type="file"
+        accept=".jpg,.jpeg,image/jpeg"
+        multiple
+        onChange={(e) => {
+          uploads.add(e.target.files);
+          e.target.value = "";
         }}
-        onDragLeave={() => setOver(false)}
-        onDrop={drop}
-      >
-        <input
-          className="sr-only"
-          type="file"
-          accept=".jpg,.jpeg,image/jpeg"
-          multiple
-          onChange={(e) => {
-            add(e.target.files);
-            e.target.value = "";
-          }}
-        />
-        <span className="drop-icon">
-          <UploadIcon />
-        </span>
-        <span className="drop-text">
-          <span className="drop-name">点击选择照片，或拖到这里</span>
-          <span className="muted">Lightroom 导出的 JPEG，一次可以选很多张；上传时会去掉照片里的位置信息</span>
-        </span>
-      </label>
+      />
+      <UploadIcon />
+      导入
+    </label>
+  );
+}
+
+// UploadStatus 在相册页上面显示上传进度和没传成的照片，没在上传时什么都不显示。
+export function UploadStatus({ uploads }: { uploads: Uploads }) {
+  const { items, error, working, retry } = uploads;
+  const done = items.filter((it) => it.status === "done").length;
+  const failed = items.filter((it) => it.status === "failed");
+  const totalBytes = items.reduce((n, it) => n + it.file.size, 0);
+  const sentBytes = items.reduce((n, it) => n + it.file.size * (it.status === "done" ? 1 : it.progress), 0);
+  if (!items.length && !error) return null;
+  return (
+    <section className="card stack upload-status">
       {error && <p className="error">{error}</p>}
       {items.length > 0 && (
-        <div className="stack upload-status">
+        <>
           <div className="progress" aria-hidden>
             <span style={{ width: `${totalBytes ? (sentBytes / totalBytes) * 100 : 0}%` }} />
           </div>
-          <p className="muted">
-            {working
-              ? `正在上传：已传完 ${done} / ${items.length} 张，${formatBytes(sentBytes)} / ${formatBytes(totalBytes)}。传完前不要关掉这个页面。`
-              : failed.length
-                ? `传完了 ${done} 张，${failed.length} 张没传成。`
-                : `${done} 张都传完了，预览图生成好以后就能看到。`}
-          </p>
+          <div className="actions">
+            <p className="muted grow">
+              {working
+                ? `正在上传：已传完 ${done} / ${items.length} 张，${formatBytes(sentBytes)} / ${formatBytes(totalBytes)}。传完前不要关掉这个页面。`
+                : failed.length
+                  ? `传完了 ${done} 张，${failed.length} 张没传成。`
+                  : `${done} 张都传完了，预览图生成好以后就能看到。`}
+            </p>
+            {!working && (
+              <button className="icon" aria-label="关掉上传进度" onClick={uploads.clear}>
+                <CloseIcon />
+              </button>
+            )}
+          </div>
           {failed.length > 0 && (
             <>
               <ul className="failed-list">
@@ -155,8 +161,48 @@ export default function Uploader({ albumId, onUploaded }: { albumId: number; onU
               )}
             </>
           )}
-        </div>
+        </>
       )}
-    </div>
+    </section>
   );
+}
+
+// useDropPhotos 让照片可以直接拖到整个页面上导入，拖着经过时页面显示一个提示框。
+export function useDropPhotos(uploads: Uploads, enabled: boolean) {
+  const [over, setOver] = useState(false);
+  const latest = useRef(uploads);
+  latest.current = uploads;
+  useEffect(() => {
+    if (!enabled) return;
+    let depth = 0;
+    const hasFiles = (e: DragEvent) => Array.from(e.dataTransfer?.types ?? []).includes("Files");
+    const enter = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      depth++;
+      setOver(true);
+    };
+    const leave = () => {
+      depth = Math.max(0, depth - 1);
+      if (!depth) setOver(false);
+    };
+    const over = (e: DragEvent) => hasFiles(e) && e.preventDefault();
+    const drop = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      depth = 0;
+      setOver(false);
+      latest.current.add(e.dataTransfer?.files);
+    };
+    window.addEventListener("dragenter", enter);
+    window.addEventListener("dragleave", leave);
+    window.addEventListener("dragover", over);
+    window.addEventListener("drop", drop);
+    return () => {
+      window.removeEventListener("dragenter", enter);
+      window.removeEventListener("dragleave", leave);
+      window.removeEventListener("dragover", over);
+      window.removeEventListener("drop", drop);
+    };
+  }, [enabled]);
+  return over;
 }
