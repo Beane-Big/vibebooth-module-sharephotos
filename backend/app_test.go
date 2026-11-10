@@ -1,7 +1,6 @@
 package main
 
 import (
-	"archive/zip"
 	"bytes"
 	"context"
 	"crypto/rand"
@@ -63,8 +62,12 @@ type client struct {
 	cookie []*http.Cookie
 }
 
-func (c *client) do(method, path string, body io.Reader, contentType string) *http.Response {
+// do 发一个请求；headers 是额外的请求头，按名称、值成对写。
+func (c *client) do(method, path string, body io.Reader, contentType string, headers ...string) *http.Response {
 	req, _ := http.NewRequest(method, c.srv.URL+path, body)
+	for i := 0; i+1 < len(headers); i += 2 {
+		req.Header.Set(headers[i], headers[i+1])
+	}
 	if c.auth != "" {
 		req.Header.Set("Authorization", c.auth)
 	}
@@ -224,11 +227,11 @@ func TestShareFlow(t *testing.T) {
 	if bytes.Contains(data, gpsLatitude) || !bytes.Contains(data, []byte("Exif")) {
 		t.Error("下载的原图应保留 EXIF、去掉 GPS")
 	}
-	zr := guest.do("GET", share+"/zip", nil, "")
-	zdata, _ := io.ReadAll(zr.Body)
-	zf, err := zip.NewReader(bytes.NewReader(zdata), int64(len(zdata)))
-	if err != nil || len(zf.File) != 1 || zf.File[0].Name != "a.jpg" {
-		t.Fatalf("打包下载不对：%v", err)
+	// 批量下载断了以后靠 Range 从断开的地方接着下。
+	part := guest.do("GET", share+"/photos/"+pid+"/original", nil, "", "Range", "bytes=10-")
+	rest, _ := io.ReadAll(part.Body)
+	if part.StatusCode != http.StatusPartialContent || !bytes.Equal(rest, data[10:]) {
+		t.Fatalf("续传原图返回 %d，%d 字节，应为 206、%d 字节", part.StatusCode, len(rest), len(data)-10)
 	}
 	// 分享链接下没有挂的路径照常要登录。
 	if r := guest.do("GET", share+"/other", nil, ""); r.StatusCode != http.StatusUnauthorized {

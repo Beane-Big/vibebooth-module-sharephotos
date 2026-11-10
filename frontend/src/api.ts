@@ -90,16 +90,17 @@ export const api = {
 
 export type PhotoKind = "thumb" | "preview" | "original";
 
-// 取图和打包下载的网址。门户里和分享页的接口一样，只是前缀不同：门户里是 /albums/<id>，分享页是 /s/<令牌>。
+// 取图的网址。门户里和分享页的接口一样，只是前缀不同：门户里是 /albums/<id>，分享页是 /s/<令牌>。
+// scope 就是这个前缀，用来区分不同相册（比如记住哪个相册还有照片没下完）。
 export type GalleryUrls = {
+  scope: string;
   photo: (p: Pick<Photo, "id">, kind: PhotoKind, inline?: boolean) => string;
-  zip: (ids?: number[]) => string;
 };
 
 export function galleryUrls(prefix: string): GalleryUrls {
   return {
+    scope: prefix,
     photo: (p, kind, inline) => `${prefix}/photos/${p.id}/${kind}${inline ? "?inline=1" : ""}`,
-    zip: (ids) => `${prefix}/zip${ids ? "?ids=" + ids.join(",") : ""}`,
   };
 }
 
@@ -169,7 +170,7 @@ export function downloadMinutes(bytes: number, rateMbps: number) {
   return Math.max(1, Math.ceil(bytes / bytesPerSec / 60));
 }
 
-// 微信内置浏览器下载不了 zip 这类文件，单张图片要长按保存。
+// 微信内置浏览器不能批量下载文件，单张图片要长按保存。
 export const inWeChat = /MicroMessenger/i.test(navigator.userAgent);
 
 // iPhone 和 iPad 上直接下载的图片进“文件”而不是“照片”，要用系统的分享面板“存储图像”。新的 iPad 自称 Macintosh，靠触屏区分。

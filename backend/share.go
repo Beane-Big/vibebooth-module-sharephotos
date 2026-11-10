@@ -24,7 +24,6 @@ func (app *App) shareRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/sharephotos/s/{token}", app.withShare(false, app.shareInfo))
 	mux.HandleFunc("POST /api/sharephotos/s/{token}/unlock", app.withShare(false, app.unlock))
 	mux.HandleFunc("GET /api/sharephotos/s/{token}/photos/{photo}/{kind}", app.withShare(true, app.servePhoto))
-	mux.HandleFunc("GET /api/sharephotos/s/{token}/zip", app.withShare(true, app.serveZip))
 }
 
 // withShare 按令牌找到相册，到期的当作不存在；unlocked 为 true 时还要已经输对提取码。

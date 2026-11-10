@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from "
 import { downloadMinutes, formatBytes, inWeChat, onIOS, type GalleryUrls, type Photo } from "../api";
 import { CloseIcon, DownloadIcon, NextIcon, PrevIcon } from "../icons";
 import Cards from "./Cards";
+import { DownloadPanel, useDownloader } from "./Downloader";
 import { animateSwitch } from "./transition";
 import Tiles, { useStoredView } from "./Tiles";
 
@@ -13,6 +14,7 @@ export type Manage = {
 };
 
 // Gallery 是门户和分享页共用的照片墙：可以切换“卡片”和“平铺”两种看法，点开看大图，点星星选几张或全部下载原图。
+// 下载是一张一张下原图，进度在底部的下载列表里（见 Downloader.tsx）。
 // 最上面只有两行：第一行左边是相册名称（title），右边是切换看法、下载全部和页面自己的按钮（actions）；
 // 第二行是有效期、张数、大小这些说明（meta 加上照片墙自己的），平铺时右边是“调整平铺”。
 // 下载走后端的总带宽限制，所以按限速估计要几分钟，让家人知道大概要等多久。
@@ -57,6 +59,7 @@ export default function Gallery({
   const picked = ready.filter((p) => selected.has(p.id));
   const pickedBytes = picked.reduce((n, p) => n + p.size, 0);
   const cards = view === "cards" && ready.length > 0;
+  const downloads = useDownloader(urls, urls.scope, ready);
 
   function toggle(p: Photo) {
     setSelected((s) => {
@@ -74,9 +77,6 @@ export default function Gallery({
       change();
     });
   }
-
-  // 只选了一张时直接下载那张原图，不打包。
-  const pickedUrl = picked.length === 1 ? urls.photo(picked[0], "original") : urls.zip(picked.map((p) => p.id));
 
   const info = [
     ...meta,
@@ -100,10 +100,10 @@ export default function Gallery({
             </div>
           )}
           {ready.length > 0 && !inWeChat && (
-            <a className="pill" href={urls.zip()} download aria-label="下载全部">
+            <button className="pill" onClick={() => downloads.add(ready)} aria-label="下载全部">
               <DownloadIcon />
               <span className="pill-text">下载全部</span>
-            </a>
+            </button>
           )}
           {actions}
         </div>
@@ -122,7 +122,7 @@ export default function Gallery({
       </div>
       {inWeChat && ready.length > 0 && (
         <p className="hint">
-          微信里不能下载压缩包：要一次下载多张，请点右上角“···”，选“在浏览器打开”。单张照片可以点开后看原图，长按保存。
+          微信里不能一次下载多张：要批量下载，请点右上角“···”，选“在浏览器打开”。单张照片可以点开后看原图，长按保存。
         </p>
       )}
       {children}
@@ -154,35 +154,43 @@ export default function Gallery({
         />
       )}
 
-      {picked.length > 0 && (
-        <div className="select-bar">
-          <span className="select-count">
-            已选 {picked.length} 张
-            <span className="muted">
-              {" "}
-              · {formatBytes(pickedBytes)} · 约 {downloadMinutes(pickedBytes, rateMbps)} 分钟
+      <div className="bottom-dock">
+        {picked.length > 0 && (
+          <div className="select-bar">
+            <span className="select-count">
+              已选 {picked.length} 张
+              <span className="muted">
+                {" "}
+                · {formatBytes(pickedBytes)} · 约 {downloadMinutes(pickedBytes, rateMbps)} 分钟
+              </span>
             </span>
-          </span>
-          <div className="actions">
-            {picked.length < ready.length && (
-              <button className="secondary" onClick={() => setSelected(new Set(ready.map((p) => p.id)))}>
-                全选
+            <div className="actions">
+              {picked.length < ready.length && (
+                <button className="secondary" onClick={() => setSelected(new Set(ready.map((p) => p.id)))}>
+                  全选
+                </button>
+              )}
+              <button className="secondary" onClick={() => setSelected(new Set())}>
+                清空
               </button>
-            )}
-            <button className="secondary" onClick={() => setSelected(new Set())}>
-              清空
-            </button>
-            {inWeChat ? (
-              <span className="muted">请在浏览器里下载</span>
-            ) : (
-              // 开始下载以后清空星星，免得下一次又把这几张带上。
-              <a className="button" href={pickedUrl} download onClick={() => setTimeout(() => setSelected(new Set()), 0)}>
-                下载
-              </a>
-            )}
+              {inWeChat ? (
+                <span className="muted">请在浏览器里下载</span>
+              ) : (
+                // 加进下载列表以后清空星星，免得下一次又把这几张带上。
+                <button
+                  onClick={() => {
+                    downloads.add(picked);
+                    setSelected(new Set());
+                  }}
+                >
+                  下载
+                </button>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+        {!inWeChat && <DownloadPanel downloads={downloads} />}
+      </div>
 
       {open !== null && (
         <Lightbox
