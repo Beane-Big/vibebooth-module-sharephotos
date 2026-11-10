@@ -1,0 +1,14 @@
+{
+  "name": "vibebooth-module-sharephotos",
+  "private": true,
+  "version": "0.0.0",
+  "description": "分享成片给家人，免登录预览和下载原图",
+  "scripts": {
+    "pack": "node scripts/vb.mjs pack",
+    "pack:source": "node scripts/vb.mjs source",
+    "install:local": "node scripts/vb.mjs install",
+    "dev": "node scripts/vb.mjs dev",
+    "standalone": "node scripts/vb.mjs standalone",
+    "rename": "node scripts/vb.mjs rename"
+  }
+}

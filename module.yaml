@@ -1,0 +1,17 @@
+# 模块清单：平台靠它认识这个模块，规则见 https://github.com/Beane-Big/vibebooth/blob/main/docs/module-spec.md
+platform: 1              # 遵循的模块规范版本
+id: sharephotos          # 全局唯一，也是网址前缀 /apps/sharephotos/ 和 /api/sharephotos/
+name: "照片分享"
+description: "把成片发给家人：生成链接，打开就能看大图、下载原图，不用注册"
+icon: icon.svg
+version: 0.1.0           # 发布新版本前改大
+services:                # 哪个容器接哪个网址前缀，安装器据此生成网关路由
+  frontend: {port: 80}   # 容器 sharephotos-frontend → /apps/sharephotos/
+  backend: {port: 8000}  # 容器 sharephotos-backend → /api/sharephotos/，健康检查 /api/sharephotos/health
+menus:                   # 模块的页面；管理员在门户“用户”页按人勾选，default 是默认拥有它的角色
+  - {id: home, name: "照片分享", path: /apps/sharephotos/, default: [user]}
+permissions:             # 功能权限；管理员在门户“用户”页按人开关，后端用 Has("<id>") 检查
+  - {id: upload, name: "上传照片", description: "建相册、上传照片、生成分享链接、续期和删除自己的相册", default: [admin]}
+  - {id: view, name: "预览照片", description: "在门户里浏览和下载所有还在有效期内的相册", default: [user]}
+# 分享链接 /apps/sharephotos/s/<令牌> 不需要登录，没有账号的亲戚也能打开；安装时要管理员确认。
+privileges: [public-share]

@@ -1,0 +1,383 @@
+/* 与 Vibebooth 门户和其他模块共用同一套颜色变量和基础控件样式。 */
+:root {
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --text: #1d2129;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --accent: #2f6fde;
+  --danger: #d93025;
+  --radius: 12px;
+  /* 卡片的半透明底色，后面的背景模糊后透出来。 */
+  --glass: color-mix(in srgb, var(--surface) 72%, transparent);
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15171c;
+    --surface: #1f2228;
+    --text: #e8eaed;
+    --muted: #9aa0a6;
+    --border: #2e3239;
+    --accent: #6b9cf5;
+    --danger: #f28b82;
+  }
+}
+
+* { box-sizing: border-box; }
+
+/* 让 hidden 属性总能生效，不被 .stack 等 display 样式盖掉。 */
+[hidden] { display: none !important; }
+
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+/* 在门户里打开时透出门户的背景（见 main.tsx）。 */
+html.embedded body { background: transparent; }
+
+.muted { color: var(--muted); font-size: 14px; }
+.error { color: var(--danger); font-size: 14px; margin: 0; }
+.success { color: var(--accent); font-size: 14px; margin: 0; }
+/* 提示：比如链接到期、微信里不能下载压缩包。 */
+.hint { font-size: 14px; margin: 0; padding: 8px 12px; border-left: 3px solid var(--accent); background: var(--bg); white-space: pre-line; }
+
+.card {
+  background: var(--glass);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+}
+
+.card h1 { margin: 0 0 12px; font-size: 20px; }
+
+button {
+  font-size: 16px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
+
+button:disabled { opacity: 0.6; }
+button.danger { background: var(--danger); }
+
+/* 次要按钮，和门户一致；下载链接也用按钮的样子。 */
+button.secondary, a.button.secondary { background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 8px 14px; font-size: 14px; }
+
+a.button {
+  display: inline-block;
+  font-size: 16px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  text-decoration: none;
+}
+
+button.link {
+  background: none;
+  color: var(--accent);
+  padding: 4px 0;
+  font-size: 14px;
+}
+
+/* 只有图标的小按钮，比如关掉大图。 */
+button.icon { display: inline-flex; padding: 6px; background: none; color: var(--muted); border-radius: 50%; }
+button.icon:hover:not(:disabled) { background: var(--bg); color: var(--text); }
+
+/* 页面最上面的一行：首页是“新建相册”和右边的“设置”，其他页左边是返回“全部相册”。不用顶栏，回门户用门户的标签栏。 */
+.page-head { display: flex; align-items: center; gap: 12px; min-height: 36px; }
+.page-title { margin: 0; font-size: 20px; }
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  color: var(--text);
+  font-size: 14px;
+  text-decoration: none;
+  transition: border-color 0.15s, color 0.15s;
+}
+.pill:hover { color: var(--accent); border-color: var(--accent); }
+
+.content { max-width: 720px; margin: 0 auto; padding: 24px 16px; }
+
+.stack { display: flex; flex-direction: column; gap: 16px; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.stack > h1, .stack > p { margin: 0; }
+
+input {
+  font-size: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+}
+/* 只给读屏和键盘用、看不见的元素，比如选文件区域里真正的文件输入框。 */
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); border: 0; }
+
+/* 选照片的区域：虚线框，点击选文件或把照片拖进来，拖到上面时变成主题色。 */
+.drop {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 20px;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--bg) 60%, transparent);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.drop:hover, .drop.over, .drop:focus-within { border-color: var(--accent); }
+.drop.over { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+/* 拖动经过里面的文字时不算离开，框不会一闪一闪。 */
+.drop.over > * { pointer-events: none; }
+.drop.picked { border-style: solid; }
+.drop.disabled { cursor: default; opacity: 0.6; }
+.drop-icon {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.drop-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.drop-name { font-size: 15px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.files { gap: 10px; }
+
+/* 点了按钮以后弹出的一块主题色的框（比如新建相册），一眼能看出点了以后有变化。 */
+.confirm {
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface));
+  animation: drop-in 0.18s ease-out;
+}
+.confirm-title { font-weight: 600; overflow-wrap: anywhere; }
+@keyframes drop-in { from { opacity: 0; transform: translateY(-6px); } }
+
+.item-name { font-weight: 600; font-size: 16px; }
+.meta { display: flex; flex-wrap: wrap; }
+.meta > span { white-space: nowrap; }
+.meta > span:not(:last-child)::after { content: "·"; margin: 0 0.35em; }
+
+.tag {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0 4px;
+  white-space: nowrap;
+}
+
+.field { display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+
+code { font-size: 13px; }
+
+/* ---- 以下是照片分享自己的样式 ---- */
+
+/* 照片墙要宽一些，大屏上一行能放更多张。 */
+.content.wide { max-width: 1080px; }
+.page-head .pill.end { margin-left: auto; }
+button.pill { cursor: pointer; font: inherit; font-size: 14px; }
+a.button { display: inline-flex; align-items: center; gap: 6px; }
+a.button.secondary { gap: 6px; }
+
+textarea, select {
+  font: inherit;
+  font-size: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+}
+textarea { resize: vertical; }
+input[type="date"] { flex: none; }
+
+/* 相册列表：每个相册一张卡片，左边封面，右边名称和有效期；宽屏两列。 */
+.albums { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); gap: 12px; }
+.card.album { display: flex; gap: 16px; padding: 12px; color: inherit; text-decoration: none; transition: border-color 0.15s; }
+.card.album:hover { border-color: var(--accent); }
+.card.album.expired .album-cover { opacity: 0.5; }
+.album-cover {
+  flex: none;
+  width: 96px;
+  height: 96px;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  background: var(--bg);
+}
+.album-cover img { width: 100%; height: 100%; object-fit: cover; }
+.album-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 4px 0; }
+.album-text .item-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 相册页最上面：名称、日期和有效期、说明。 */
+.album-head { display: flex; flex-direction: column; gap: 6px; padding: 0 4px; }
+.album-head .page-title { font-size: 24px; overflow-wrap: anywhere; }
+.note { margin: 4px 0 0; white-space: pre-line; line-height: 1.6; }
+
+/* 分享面板里的提取码、有效期、链接三行：标签、内容、按钮；窄屏上按钮换到下一行。 */
+.share-rows { display: flex; flex-direction: column; border-top: 1px solid var(--border); }
+.share-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.share-label { width: 4em; flex: none; color: var(--muted); font-size: 14px; }
+.share-value { flex: 1; min-width: min(100%, 200px); font-size: 15px; }
+.code { font-size: 20px; letter-spacing: 0.2em; font-variant-numeric: tabular-nums; }
+.inline-field { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; white-space: nowrap; }
+.inline-field input { width: 72px; flex: none; }
+.danger-zone { padding-top: 16px; border-top: 1px solid var(--border); }
+button.link.danger-link { color: var(--danger); }
+
+/* 上传进度。 */
+.progress { height: 6px; border-radius: 3px; background: var(--bg); overflow: hidden; }
+.progress > span { display: block; height: 100%; background: var(--accent); transition: width 0.3s; }
+.upload-status { gap: 8px; }
+.upload-status p { margin: 0; }
+.failed-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.failed-list li { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; }
+
+/* 照片墙：正方形缩略图铺满一行，手机上一行三张。 */
+.gallery { gap: 12px; }
+.gallery > p { margin: 0; }
+.gallery-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 0 4px; }
+.grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+@media (max-width: 600px) {
+  .grid { grid-template-columns: repeat(3, 1fr); gap: 3px; }
+}
+.tile { position: relative; aspect-ratio: 1; border-radius: 6px; overflow: hidden; background: var(--bg); }
+.tile-button { display: block; width: 100%; height: 100%; padding: 0; border-radius: 0; background: none; }
+.tile img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform 0.15s, opacity 0.15s; }
+.tile-button:hover img { opacity: 0.9; }
+.tile.on img { transform: scale(0.88); border-radius: 4px; }
+.tile.on { background: color-mix(in srgb, var(--accent) 18%, var(--bg)); }
+.tile.pending { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 1px dashed var(--border); }
+/* 选择时右上角的圆圈，选中后变成主题色的勾。 */
+.check {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  background: rgb(0 0 0 / 0.25);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.tile.on .check { background: var(--accent); border-color: var(--accent); }
+.badge { position: absolute; left: 6px; bottom: 6px; padding: 1px 6px; border-radius: 4px; font-size: 12px; color: #fff; background: rgb(0 0 0 / 0.55); pointer-events: none; }
+
+/* 选择照片时贴在屏幕底部的一条：选了几张、多大、下载。 */
+.select-bar {
+  position: sticky;
+  bottom: 12px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  flex-wrap: wrap;
+  padding: 10px 12px 10px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.12);
+  margin-bottom: env(safe-area-inset-bottom);
+}
+.select-count { font-weight: 500; }
+
+/* 看大图：全屏黑底，不跟着浅色、深色主题变；上面是第几张和关闭，下面是下载。 */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  background: #000;
+  color: #f1f1f1;
+}
+.lightbox-top, .lightbox-bottom {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  font-size: 14px;
+  flex-wrap: wrap;
+}
+.lightbox-top { padding-top: max(10px, env(safe-area-inset-top)); }
+.lightbox-bottom { justify-content: center; padding-bottom: max(14px, env(safe-area-inset-bottom)); }
+.lightbox-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #a8a8a8; }
+.lightbox-size { color: #a8a8a8; }
+.lightbox button.icon { color: #f1f1f1; }
+.lightbox button.icon:hover { background: rgb(255 255 255 / 0.12); color: #fff; }
+.lightbox button.secondary { background: rgb(255 255 255 / 0.1); color: #f1f1f1; border-color: rgb(255 255 255 / 0.2); }
+.lightbox-stage { position: relative; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; touch-action: pan-y pinch-zoom; }
+.lightbox-stage img { max-width: 100%; max-height: 100%; object-fit: contain; user-select: none; -webkit-user-select: none; }
+.lightbox-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  padding: 10px;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 0.35);
+  color: #fff;
+}
+.lightbox-nav:hover { background: rgb(0 0 0 / 0.6); }
+.lightbox-nav.prev { left: 12px; }
+.lightbox-nav.next { right: 12px; }
+/* 手机上靠左右滑动换照片，不挡着照片。 */
+@media (pointer: coarse) {
+  .lightbox-nav { display: none; }
+}
+
+/* 分享页：最上面是封面大图。 */
+.share { padding-top: 16px; }
+.hero { border-radius: var(--radius); overflow: hidden; aspect-ratio: 16 / 9; max-height: 56vh; width: 100%; background: var(--bg); }
+.hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.unlock { max-width: 420px; }
+.unlock input { font-size: 20px; letter-spacing: 0.3em; }
+.unlock input::placeholder { font-size: 16px; letter-spacing: normal; }
+.footnote { margin: 8px 0 0; padding: 0 4px; text-align: center; }
+@media (max-width: 600px) {
+  .share { padding: 0 0 24px; }
+  .share > :first-child:not(.hero) { margin-top: 24px; }
+  .share .hero { border-radius: 0; max-height: 44vh; }
+  .share > :not(.hero):not(.gallery) { margin-left: 16px; margin-right: 16px; }
+  .share .gallery-bar, .share .gallery > p { margin: 0 16px; }
+  .share .select-bar { margin: 0 12px; }
+}

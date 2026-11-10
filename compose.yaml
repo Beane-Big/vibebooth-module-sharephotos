@@ -1,0 +1,19 @@
+# 模块的容器。npm run pack 按 build 构建镜像，打包时去掉 build、把 ${VERSION} 换成 module.yaml 里的版本号。
+# 网络、网关路由标签和 JWKS_URL 由安装器补上，这里不写；允许的字段见模块规范。
+services:
+  sharephotos-backend:
+    image: vb-sharephotos-backend:${VERSION}
+    build: ./backend
+    environment:
+      DATA_DIR: /data
+    volumes:
+      - data:/data
+
+  sharephotos-frontend:
+    image: vb-sharephotos-frontend:${VERSION}
+    build: {context: ., dockerfile: frontend/Dockerfile}  # 构建目录是模块根目录，要用到 icon.svg
+    depends_on:
+      - sharephotos-backend
+
+volumes:
+  data:
