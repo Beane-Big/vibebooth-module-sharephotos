@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ApiError, formatBytes, uploadPhoto, type Photo } from "../api";
 import { CloseIcon, UploadIcon } from "../icons";
+import { speedText, useSpeed } from "./speed";
 
 type Item = {
   id: number;
@@ -120,6 +121,7 @@ export function UploadStatus({ uploads }: { uploads: Uploads }) {
   const failed = items.filter((it) => it.status === "failed");
   const totalBytes = items.reduce((n, it) => n + it.file.size, 0);
   const sentBytes = items.reduce((n, it) => n + it.file.size * (it.status === "done" ? 1 : it.progress), 0);
+  const speed = useSpeed(sentBytes, working);
   if (!items.length && !error) return null;
   return (
     <section className="card stack upload-status">
@@ -132,7 +134,7 @@ export function UploadStatus({ uploads }: { uploads: Uploads }) {
           <div className="actions">
             <p className="muted grow">
               {working
-                ? `正在上传：已传完 ${done} / ${items.length} 张，${formatBytes(sentBytes)} / ${formatBytes(totalBytes)}。传完前不要关掉这个页面。`
+                ? `正在上传：已传完 ${done} / ${items.length} 张，${formatBytes(sentBytes)} / ${formatBytes(totalBytes)}${speed > 0 ? `，${speedText(speed, totalBytes - sentBytes)}` : ""}。传完前不要关掉这个页面。`
                 : failed.length
                   ? `传完了 ${done} 张，${failed.length} 张没传成。`
                   : `${done} 张都传完了，预览图生成好以后就能看到。`}

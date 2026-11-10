@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { formatBytes, onIOS, type GalleryUrls, type Photo } from "../api";
-import { CloseIcon } from "../icons";
+import { CloseIcon, PhotoIcon } from "../icons";
+import { speedText } from "./speed";
 
 // 批量下载原图：一张一张下（同时两张），每张是单独的 JPEG，不再打成 zip。
 // 下载列表里能看到每张的进度；网络断了自动等恢复、从断开的地方接着下，关掉页面再打开也能接着下没下完的。
@@ -222,6 +223,7 @@ export function useDownloader(urls: GalleryUrls, scope: string, photos: Photo[])
   const [stopped, setStopped] = useState(""); // 让整个队列停下来的错误
   const [unsaved, setUnsaved] = useState(0); // iPhone 上下好了还没存到相册的张数
   const [shareHint, setShareHint] = useState("");
+  const [sharing, setSharing] = useState(false); // 分享面板正在打开或开着
   // 上次关页面时没下完的照片 id。
   const [leftover, setLeftover] = useState<number[]>(() => {
     try {
@@ -442,9 +444,12 @@ export function useDownloader(urls: GalleryUrls, scope: string, photos: Photo[])
   }
 
   // iPhone：把攒好的几张交给系统分享面板，用户选“存储图像”。
+  // 照片多时系统要准备一两秒才弹出面板，这期间按钮显示“正在打开”并且不能再点；再点一次会被系统当成重复分享而失败。
   async function saveToPhotos() {
+    if (sharing) return;
     const batch = ready.current;
     setShareHint("");
+    setSharing(true);
     try {
       await navigator.share({ files: batch.map((b) => b.file) });
       ready.current = ready.current.filter((r) => !batch.includes(r));
@@ -455,6 +460,8 @@ export function useDownloader(urls: GalleryUrls, scope: string, photos: Photo[])
     } catch (err) {
       // 自己关掉分享面板不用提示；照片留着，可以再点。
       if (err instanceof DOMException && err.name === "NotAllowedError") setShareHint("没打开分享面板，请再点一次");
+    } finally {
+      setSharing(false);
     }
   }
 
@@ -480,6 +487,7 @@ export function useDownloader(urls: GalleryUrls, scope: string, photos: Photo[])
     speed,
     unsaved,
     shareHint,
+    sharing,
     leftover: left,
     add,
     pause,
@@ -524,11 +532,6 @@ const statusText = (it: DownloadItem) => {
       return "已取消";
   }
 };
-
-function minutesText(seconds: number) {
-  if (seconds < 60) return "不到 1 分钟";
-  return `约 ${Math.ceil(seconds / 60)} 分钟`;
-}
 
 // DownloadPanel 是贴在屏幕底部的下载列表：上面是总进度、速度和还要多久，展开后是每张照片的状态。
 // 没有下载时，如果上次有没下完的，提示接着下。
@@ -580,7 +583,7 @@ export function DownloadPanel({ downloads: d }: { downloads: Downloads }) {
           <strong>{title}</strong>
           <span className="muted">
             {formatBytes(got)} / {formatBytes(total)}
-            {d.working && d.speed > 0 && ` · ${formatBytes(d.speed)}/秒 · 还要${minutesText((total - got) / d.speed)}`}
+            {d.working && d.unsaved < shareBatch && d.speed > 0 && ` · ${speedText(d.speed, total - got)}`}
           </span>
         </div>
         {d.working && (
@@ -602,12 +605,6 @@ export function DownloadPanel({ downloads: d }: { downloads: Downloads }) {
         <span style={{ width: `${total ? (got / total) * 100 : 0}%` }} />
       </div>
       {d.stopped && <p className="error">{d.stopped}</p>}
-      {d.mode === "share" && d.unsaved > 0 && (
-        <div className="actions">
-          <button onClick={d.saveToPhotos}>存到相册（{d.unsaved} 张）</button>
-          <span className="muted">{d.shareHint || "在弹出的面板里选“存储图像”；每存一批再接着下后面的。"}</span>
-        </div>
-      )}
       {open && (
         <>
           <p className="muted">
@@ -649,6 +646,16 @@ export function DownloadPanel({ downloads: d }: { downloads: Downloads }) {
             )}
           </div>
         </>
+      )}
+      {/* 放在面板最下面：面板贴着屏幕底部，最下面这一行不会因为上面的文字变化而跳动，点的时候不会点空。 */}
+      {d.mode === "share" && d.unsaved > 0 && (
+        <div className="save-photos">
+          <button className="save-photos-button" onClick={d.saveToPhotos} disabled={d.sharing}>
+            <PhotoIcon />
+            {d.sharing ? "正在打开…" : `存到相册（${d.unsaved} 张）`}
+          </button>
+          <span className="muted">{d.shareHint || "在弹出的面板里选“存储图像”"}</span>
+        </div>
       )}
     </section>
   );

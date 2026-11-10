@@ -16,7 +16,7 @@ export type Manage = {
 // Gallery 是门户和分享页共用的照片墙：可以切换“卡片”和“平铺”两种看法，点开看大图，点星星选几张或全部下载原图。
 // 下载是一张一张下原图，进度在底部的下载列表里（见 Downloader.tsx）。
 // 最上面只有两行：第一行左边是相册名称（title），右边是切换看法、下载全部和页面自己的按钮（actions）；
-// 第二行是有效期、张数、大小这些说明（meta 加上照片墙自己的），平铺时右边是“调整平铺”。
+// 第二行是有效期、张数、大小这些说明（meta 加上照片墙自己的）。
 // 下载走后端的总带宽限制，所以按限速估计要几分钟，让家人知道大概要等多久。
 export default function Gallery({
   photos,
@@ -44,7 +44,6 @@ export default function Gallery({
   // 正在看的照片 id；按 id 而不是序号记，上传者删了前面的照片也不会跳到别的照片。
   const [open, setOpen] = useState<number | null>(null);
   const [view, setView] = useStoredView();
-  const [tuning, setTuning] = useState(false);
   // 卡片第一次出现时播放展开动画；切换过来时不播，免得和切换动画叠在一起。
   const [intro, setIntro] = useState(true);
   // 卡片停在第几张，切到平铺再切回来、看完大图回来时接着从这张看。
@@ -114,11 +113,6 @@ export default function Gallery({
             <span key={i}>{text}</span>
           ))}
         </span>
-        {!cards && ready.length > 0 && (
-          <button className="pill" onClick={() => setTuning(!tuning)} aria-expanded={tuning}>
-            {tuning ? "收起" : "调整平铺"}
-          </button>
-        )}
       </div>
       {inWeChat && ready.length > 0 && (
         <p className="hint">
@@ -145,7 +139,6 @@ export default function Gallery({
         <Tiles
           photos={manage ? photos : ready}
           urls={urls}
-          tuning={tuning}
           selected={selected}
           coverId={manage?.coverId}
           onOpen={(p) => setOpen(p.id)}

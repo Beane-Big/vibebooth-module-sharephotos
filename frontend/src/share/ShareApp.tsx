@@ -62,7 +62,8 @@ export default function ShareApp() {
     <main className="content wide share stack">
       {!locked && info.cover > 0 && (
         <div className="hero">
-          <img src={urls.photo({ id: info.cover }, "preview")} alt="" />
+          {/* 手机上封面是隐藏的，lazy 让隐藏时不去下载这张图。 */}
+          <img src={urls.photo({ id: info.cover }, "preview")} alt="" loading="lazy" />
         </div>
       )}
       {locked ? (

@@ -293,35 +293,19 @@ button.link.danger-link { color: var(--danger); }
 .segmented button { position: relative; padding: 6px 14px; font-size: 14px; border-radius: 999px; background: none; color: var(--muted); transition: color 0.2s; }
 .segmented button.on { color: var(--text); }
 
-/* 平铺：按原比例的瀑布流，列数、间距、圆角由用户调整（行内样式）。 */
-.tiles-wrap { gap: 12px; }
-.tiles { display: flex; align-items: flex-start; }
+/* 平铺：按原比例的瀑布流，列数用双指缩放调整，间距、圆角跟着列数走（行内样式）。 */
+/* 缩放时照片墙跟着手指放大，超出的部分裁掉；松手后不换列数时弹回原样。 */
+.tiles-wrap { gap: 12px; overflow: clip; }
+.tiles { display: flex; align-items: flex-start; transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.tiles.pinching { will-change: transform; }
 .tiles-col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .tile { position: relative; overflow: hidden; background: var(--bg); }
 .tile-button { display: block; width: 100%; height: 100%; padding: 0; border-radius: 0; background: none; }
 .tile img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform 0.15s, opacity 0.15s; }
 .tile-button:hover img { opacity: 0.9; }
 .tile.pending { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 1px dashed var(--border); }
-/* 调整平铺的面板：三个滑块排成一行，窄屏上竖着排。 */
-.tuner {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px 32px;
-  padding: 18px 24px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--glass);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  backdrop-filter: blur(20px) saturate(180%);
-  animation: drop-in 0.18s ease-out;
-}
-@media (max-width: 600px) {
-  .tuner { grid-template-columns: 1fr; }
-}
-.slider { display: flex; flex-direction: column; gap: 8px; font-size: 14px; text-align: center; }
 /* 滑块不用输入框的边框和底色。 */
 input[type="range"] { flex: none; padding: 0; border: 0; background: none; accent-color: var(--accent); }
-.slider input { width: 100%; }
 
 /* 卡片：一叠卡片水平排成一行，正中这张最大。 */
 /* 卡片一直排到屏幕两边，不受内容宽度限制。 */
@@ -403,6 +387,26 @@ input[type="range"] { flex: none; padding: 0; border: 0; background: none; accen
 .download-row.done .download-status, .download-row.skipped .download-status { color: var(--accent); }
 .download-row.canceled { opacity: 0.55; }
 .download-row-progress { grid-column: 1 / -1; height: 3px; }
+/* iPhone 上“存到相册”：整行大按钮，按下有反馈；manipulation 去掉双击缩放的等待，点一下马上响应。 */
+.save-photos { display: flex; flex-direction: column; gap: 6px; text-align: center; }
+.save-photos p, .save-photos span { font-size: 13px; }
+.save-photos-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 48px;
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: 12px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.1s, opacity 0.15s;
+}
+.save-photos-button svg { width: 22px; height: 22px; }
+.save-photos-button:active:not(:disabled) { transform: scale(0.97); opacity: 0.85; }
+.save-photos-button:disabled { opacity: 0.7; }
 @media (max-width: 600px) {
   .download-row { grid-template-columns: minmax(0, 1fr) auto; }
   .download-size { display: none; }
@@ -464,11 +468,11 @@ input[type="range"] { flex: none; padding: 0; border: 0; background: none; accen
 .unlock input::placeholder { font-size: 16px; letter-spacing: normal; }
 .footnote { margin: 8px 0 0; padding: 0 4px; text-align: center; }
 @media (max-width: 600px) {
-  .share { padding: 0 0 24px; }
-  .share > :first-child:not(.hero) { margin-top: 24px; }
-  .share .hero { border-radius: 0; max-height: 44vh; }
+  .share { padding: 20px 0 24px; }
+  /* 手机上不放封面大图，打开就是照片。 */
+  .share .hero { display: none; }
   .share > :not(.hero):not(.gallery) { margin-left: 16px; margin-right: 16px; }
-  .share .gallery-head, .share .gallery-meta, .share .gallery > p, .share .gallery > .card, .share .cards-caption, .share .tuner { margin: 0 16px; }
+  .share .gallery-head, .share .gallery-meta, .share .gallery > p, .share .gallery > .card, .share .cards-caption { margin: 0 16px; }
   .share .bottom-dock { margin: 0 12px; }
 }
 
