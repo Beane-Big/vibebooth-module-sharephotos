@@ -65,27 +65,32 @@ export default function ShareApp() {
           <img src={urls.photo({ id: info.cover }, "preview")} alt="" />
         </div>
       )}
-      <section className="album-head">
-        <h1 className="page-title">{info.title}</h1>
-        <span className="muted meta">
-          {[
-            info.ownerName && `${info.ownerName} 分享`,
-            `${info.count} 张`,
-            `${formatDate(info.expiresAt)}前有效`,
-          ]
-            .filter(Boolean)
-            .map((text, i) => (
-              <span key={i}>{text}</span>
-            ))}
-        </span>
-        {info.note && <p className="note">{info.note}</p>}
-      </section>
       {locked ? (
-        <Unlock onDone={load} />
-      ) : info.photos!.length === 0 ? (
-        <p className="card muted">相册里还没有照片。</p>
+        <>
+          <section className="album-head">
+            <h1 className="page-title">{info.title}</h1>
+            <span className="muted meta">
+              {[info.ownerName && `${info.ownerName} 分享`, `${info.count} 张`, `${formatDate(info.expiresAt)}前有效`]
+                .filter(Boolean)
+                .map((text, i) => (
+                  <span key={i}>{text}</span>
+                ))}
+            </span>
+            {info.note && <p className="note">{info.note}</p>}
+          </section>
+          <Unlock onDone={load} />
+        </>
       ) : (
-        <Gallery photos={info.photos!} urls={urls} rateMbps={info.rateMbps} />
+        <Gallery
+          photos={info.photos!}
+          urls={urls}
+          rateMbps={info.rateMbps}
+          title={<h1 className="page-title">{info.title}</h1>}
+          meta={[info.ownerName && `${info.ownerName} 分享`, `${formatDate(info.expiresAt)}前有效`]}
+          empty={<p className="card muted">相册里还没有照片。</p>}
+        >
+          {info.note && <p className="note">{info.note}</p>}
+        </Gallery>
       )}
       {!locked && info.photos!.length > 0 && (
         <p className="muted footnote">

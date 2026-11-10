@@ -99,6 +99,7 @@ export function ImportButton({ uploads }: { uploads: Uploads }) {
       <input
         className="sr-only"
         type="file"
+        aria-label="导入照片"
         accept=".jpg,.jpeg,image/jpeg"
         multiple
         onChange={(e) => {
@@ -107,7 +108,7 @@ export function ImportButton({ uploads }: { uploads: Uploads }) {
         }}
       />
       <UploadIcon />
-      导入
+      <span className="pill-text">导入</span>
     </label>
   );
 }
