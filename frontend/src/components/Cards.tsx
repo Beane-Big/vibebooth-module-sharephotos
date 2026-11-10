@@ -5,7 +5,7 @@ import { transitionName } from "./transition";
 // 前后各画多少张；再远的看不清，不画能省下很多图片请求。
 const visible = 14;
 
-// Cards 是卡片：照片像一叠卡片斜着排成一条，当前这张转过来正对着人，前后的往左下、右上退远。
+// Cards 是卡片：照片像一叠卡片水平排成一行，都正对着人，当前这张在正中最大，两边的往后退、越远越小。
 // 打开时先叠成一摞再展开。左右滑动、滚轮或方向键换一张，点中间这张看大图，点旁边的跳过去，下面的滑块可以快速拖到任意一张。
 export default function Cards({
   photos,
@@ -119,7 +119,7 @@ export default function Cards({
   const phone = width < 600;
   const cw = Math.min(300, Math.max(150, width * (phone ? 0.56 : 0.22)));
   const ch = cw * 1.25;
-  const stepPx = cw * (phone ? 0.2 : 0.3);
+  const stepPx = cw * (phone ? 0.26 : 0.4);
 
   function down(e: PointerEvent) {
     drag.current = { x: e.clientX, start: target.current, moved: false };
@@ -158,7 +158,7 @@ export default function Cards({
       <div
         ref={stage}
         className="cards-stage"
-        style={{ height: ch * (phone ? 1.5 : 1.9) }}
+        style={{ height: ch * 1.25 }}
         onPointerDown={down}
         onPointerMove={move}
         onPointerUp={up}
@@ -171,18 +171,15 @@ export default function Cards({
             if (a > visible) return null;
             const s = Math.sign(d);
             const near = Math.min(a, 1);
-            // 排开以后的位置：当前这张在正中，前面的往左下、后面的往右上，越远越往后退。
-            const x = s * (near * cw * (phone ? 0.5 : 0.62) + Math.max(0, a - 1) * stepPx);
-            const y = -x * 0.5;
-            const z = -near * cw * (phone ? 1.6 : 1.1) - Math.max(0, a - 1) * cw * 0.22;
-            const ry = -38 * near;
-            // 叠成一摞时每张只错开一点点。
+            // 排开以后的位置：当前这张在正中，前面的往左、后面的往右，越远越往后退，整排保持水平、不倾斜。
+            const x = s * (near * cw * (phone ? 0.62 : 0.78) + Math.max(0, a - 1) * stepPx);
+            const z = -near * cw * 0.5 - Math.max(0, a - 1) * cw * 0.16;
+            // 叠成一摞时每张只往后错开一点点。
             const t = spread;
-            const sx = d * 2.5;
+            const sx = d * 3;
             const tx = sx + (x - sx) * t;
-            const ty = -sx + (y + sx) * t;
-            const tz = -a * 6 + (z + a * 6) * t;
-            const r = -38 + (ry + 38) * t;
+            const ty = -a * 3 * (1 - t);
+            const tz = -a * 8 + (z + a * 8) * t;
             return (
               <div
                 key={p.id}
@@ -193,7 +190,7 @@ export default function Cards({
                   height: ch,
                   marginLeft: -cw / 2,
                   marginTop: -ch / 2,
-                  transform: `translate3d(${tx}px, ${ty}px, ${tz}px) rotateY(${r}deg) rotateX(${6 * near * t}deg)`,
+                  transform: `translate3d(${tx}px, ${ty}px, ${tz}px)`,
                   zIndex: 1000 - Math.round(a * 10),
                   viewTransitionName: transitionName(p),
                   opacity: a > visible - 3 ? Math.max(0, (visible - a) / 3) : 1,

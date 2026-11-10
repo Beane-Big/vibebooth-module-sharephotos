@@ -322,7 +322,7 @@ button.link.danger-link { color: var(--danger); }
 input[type="range"] { flex: none; padding: 0; border: 0; background: none; accent-color: var(--accent); }
 .slider input { width: 100%; }
 
-/* 卡片：一叠卡片斜着排成一条，正中这张正对着人。 */
+/* 卡片：一叠卡片水平排成一行，正中这张最大。 */
 /* 卡片一直排到屏幕两边，不受内容宽度限制。 */
 .cards-stage {
   position: relative;
@@ -465,4 +465,39 @@ input[type="range"] { flex: none; padding: 0; border: 0; background: none; accen
 @keyframes switch-in { from { opacity: 0; transform: translateY(12px) scale(0.98); } }
 @media (prefers-reduced-motion: reduce) {
   .gallery.switching .cards-wrap, .gallery.switching .tiles-wrap { animation: none; }
+}
+
+/* 相册页右上角的几个按钮：复制分享链接、导入、设置。 */
+.head-actions { margin-left: auto; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+label.pill { cursor: pointer; }
+label.pill:focus-within { color: var(--accent); border-color: var(--accent); }
+.grow { flex: 1; min-width: 0; margin: 0; }
+/* 把照片拖到页面上时盖住整页的提示。 */
+.drop-overlay {
+  position: fixed;
+  inset: 12px;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed var(--accent);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--accent) 10%, color-mix(in srgb, var(--bg) 80%, transparent));
+  color: var(--accent);
+  font-size: 18px;
+  pointer-events: none;
+}
+/* 设置页里分享设置下面接着名称、说明等，分隔线用上面最后一行的下边框。 */
+.settings-more { padding-top: 4px; }
+.pill { white-space: nowrap; }
+/* 手机上右上角放三个按钮，按钮收窄一点，“复制分享链接”写成“复制链接”，和“全部相册”挤在一行。 */
+@media (max-width: 600px) {
+  .page-head { gap: 6px; }
+  .head-actions { gap: 6px; flex-wrap: nowrap; }
+  .page-head .pill { padding: 6px 10px; font-size: 13px; gap: 4px; }
+  .wide-only { display: none; }
+}
+/* 很窄的手机（比如 iPhone SE）上“全部相册”只留箭头，右边三个按钮才放得下。 */
+@media (max-width: 380px) {
+  .narrow-hide { display: none; }
 }
