@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { downloadMinutes, formatBytes, inWeChat, onIOS, type GalleryUrls, type Photo } from "../api";
-import { CheckIcon, CloseIcon, DownloadIcon, NextIcon, PrevIcon } from "../icons";
+import { CloseIcon, DownloadIcon, NextIcon, PrevIcon } from "../icons";
+import Cards from "./Cards";
+import { animateSwitch } from "./transition";
+import Tiles, { useStoredView } from "./Tiles";
 
 // 上传者在门户里管理相册时多出来的操作：设封面、删照片。
 export type Manage = {
@@ -9,7 +12,8 @@ export type Manage = {
   onDelete: (p: Photo) => Promise<void>;
 };
 
-// Gallery 是门户和分享页共用的照片墙：缩略图网格、点开看大图、选几张或全部下载原图。
+// Gallery 是门户和分享页共用的照片墙：可以切换“卡片”和“平铺”两种看法，点开看大图，选几张或全部下载原图。
+// 选择照片时总是用平铺，一眼能看到选了哪些。
 // 下载走后端的总带宽限制，所以按限速估计要几分钟，让家人知道大概要等多久。
 export default function Gallery({
   photos,
@@ -27,6 +31,11 @@ export default function Gallery({
   const [selected, setSelected] = useState<Set<number>>(new Set());
   // 正在看的照片 id；按 id 而不是序号记，上传者删了前面的照片也不会跳到别的照片。
   const [open, setOpen] = useState<number | null>(null);
+  const [view, setView] = useStoredView();
+  // 卡片第一次出现时播放展开动画；切换过来时不播，免得和切换动画叠在一起。
+  const [intro, setIntro] = useState(true);
+  // 卡片停在第几张，切到平铺再切回来、看完大图回来时接着从这张看。
+  const [cardIndex, setCardIndex] = useState(0);
 
   // 照片被删掉以后，从已选里去掉。
   useEffect(() => {
@@ -47,8 +56,18 @@ export default function Gallery({
   }
 
   function stopSelecting() {
-    setSelecting(false);
-    setSelected(new Set());
+    morph(() => {
+      setSelecting(false);
+      setSelected(new Set());
+    });
+  }
+
+  // morph 在卡片和平铺之间切换（包括开始、结束选择），每张照片从原来的位置平滑地移到新位置。
+  function morph(change: () => void) {
+    animateSwitch(() => {
+      setIntro(false);
+      change();
+    });
   }
 
   // 只选了一张时直接下载那张原图，不打包。
@@ -62,7 +81,17 @@ export default function Gallery({
         </span>
         {ready.length > 0 && (
           <div className="actions">
-            <button className="secondary" onClick={() => (selecting ? stopSelecting() : setSelecting(true))}>
+            {!selecting && (
+              <div className={"segmented" + (view === "tiles" ? " second" : "")} role="group" aria-label="看法">
+                <button className={view === "cards" ? "on" : ""} aria-pressed={view === "cards"} onClick={() => view !== "cards" && morph(() => setView("cards"))}>
+                  卡片
+                </button>
+                <button className={view === "tiles" ? "on" : ""} aria-pressed={view === "tiles"} onClick={() => view !== "tiles" && morph(() => setView("tiles"))}>
+                  平铺
+                </button>
+              </div>
+            )}
+            <button className="secondary" onClick={() => (selecting ? stopSelecting() : morph(() => setSelecting(true)))}>
               {selecting ? "取消选择" : "选择"}
             </button>
             {!selecting && !inWeChat && (
@@ -85,42 +114,27 @@ export default function Gallery({
         </p>
       )}
 
-      <ul className="grid">
-        {photos.map((p) => {
-          if (p.status !== "ready") {
-            if (!manage) return null;
-            return (
-              <li key={p.id} className="tile pending">
-                <span className="muted">{p.status === "processing" ? "处理中…" : "处理失败"}</span>
-                {p.status === "failed" && (
-                  <button className="link" onClick={() => manage.onDelete(p)}>
-                    删除
-                  </button>
-                )}
-              </li>
-            );
-          }
-          const on = selected.has(p.id);
-          return (
-            <li key={p.id} className={"tile" + (on ? " on" : "")}>
-              <button
-                className="tile-button"
-                aria-label={selecting ? `选择 ${p.name}` : `查看 ${p.name}`}
-                aria-pressed={selecting ? on : undefined}
-                onClick={() => (selecting ? toggle(p) : setOpen(p.id))}
-              >
-                <img src={urls.photo(p, "thumb")} alt="" loading="lazy" decoding="async" />
-              </button>
-              {selecting && (
-                <span className="check" aria-hidden>
-                  {on && <CheckIcon />}
-                </span>
-              )}
-              {manage?.coverId === p.id && <span className="badge">封面</span>}
-            </li>
-          );
-        })}
-      </ul>
+      {view === "cards" && !selecting && ready.length > 0 ? (
+        <Cards
+          photos={ready}
+          urls={urls}
+          paused={open !== null}
+          intro={intro}
+          start={cardIndex}
+          onIndex={setCardIndex}
+          onOpen={(p) => setOpen(p.id)}
+        />
+      ) : (
+        <Tiles
+          photos={manage ? photos : ready}
+          urls={urls}
+          selecting={selecting}
+          selected={selected}
+          coverId={manage?.coverId}
+          onTap={(p) => (selecting ? toggle(p) : setOpen(p.id))}
+          onDeleteFailed={manage?.onDelete}
+        />
+      )}
 
       {selecting && (
         <div className="select-bar">
@@ -160,7 +174,12 @@ export default function Gallery({
           urls={urls}
           manage={manage}
           onMove={setOpen}
-          onClose={() => setOpen(null)}
+          onClose={() => {
+            // 在大图里翻到第几张，回到卡片时就停在那张。
+            const i = ready.findIndex((p) => p.id === open);
+            if (i >= 0) setCardIndex(i);
+            setOpen(null);
+          }}
         />
       )}
     </div>

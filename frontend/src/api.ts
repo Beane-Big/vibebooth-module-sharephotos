@@ -13,7 +13,6 @@ export type Photo = {
 export type Album = {
   id: number;
   title: string;
-  shotDate: string;
   note: string;
   ownerName: string;
   coverId: number; // 设定的封面，0 表示没设
@@ -40,7 +39,6 @@ export type Settings = { expireDays: number; retainDays: number; rateMbps: numbe
 // 新建和修改相册时提交的内容，没写的字段不变。
 export type AlbumInput = Partial<{
   title: string;
-  shotDate: string;
   note: string;
   coverId: number;
   sort: "time" | "name";
@@ -149,11 +147,6 @@ export function formatDate(iso: string, withTime = false) {
   let s = `${sameYear ? "" : d.getFullYear() + "年"}${d.getMonth() + 1}月${d.getDate()}日`;
   if (withTime) s += ` ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
   return s;
-}
-
-// shotDateText 把拍摄日期 2026-11-08 写成“11月8日”。
-export function shotDateText(date: string) {
-  return date ? formatDate(date + "T00:00:00") : "";
 }
 
 // daysLeft 是离某个时刻还有几天，不足一天按一天算。
