@@ -1,39 +1,38 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { GalleryUrls, Photo } from "../api";
 import Star from "./Star";
-import { transitionName } from "./transition";
+import { animateSwitch, transitionName } from "./transition";
 
-// 平铺的三个可调参数，存在浏览器里，下次打开还是一样。
-type Layout = { columns: number; gap: number; radius: number };
-
+// 平铺的列数存在浏览器里，下次打开还是一样。间距和圆角固定，列多时圆角跟着变小。
 const KEY = "sharephotos:tiles";
 
-function loadLayout(): Layout | null {
+function loadColumns(): number | null {
   try {
     const v = JSON.parse(localStorage.getItem(KEY) ?? "null");
-    return v && typeof v.columns === "number" ? v : null;
+    return v && typeof v.columns === "number" ? v.columns : null;
   } catch {
     return null;
   }
 }
 
-function saveLayout(l: Layout) {
+function saveColumns(columns: number) {
   try {
-    localStorage.setItem(KEY, JSON.stringify(l));
+    localStorage.setItem(KEY, JSON.stringify({ columns }));
   } catch {
     // 浏览器不让存时只是下次打开回到默认值。
   }
 }
 
-// 没调过时按屏幕宽度定列数：手机两列，电脑四列。
-const defaultColumns = (width: number) => (width < 600 ? 2 : width < 900 ? 3 : 4);
+// 没调过时按屏幕宽度定列数：手机三列，电脑四列；最多手机 6 列、电脑 10 列。
+const defaultColumns = (width: number) => (width < 600 ? 3 : width < 900 ? 3 : 4);
+const maxColumns = (width: number) => (width < 600 ? 6 : 10);
 
 // Tiles 是平铺：照片按原来的比例排成瀑布流，每张放进当前最矮的一列，顺序大致从左到右、从上到下。
-// 照片墙上的“调整平铺”打开 tuning 时，上面显示改列数、间距和圆角的滑块。点照片看大图，点右上角的星星选中。
+// 像 iPhone 的“照片”一样用双指缩放改列数：张开变少、变大，捏合变多、变小；电脑上用触控板缩放或者按住 Ctrl（Mac 上是 ⌘）滚动滚轮。
+// 缩放时整面照片先跟着手指放大缩小，松手后换成最接近的列数，手指下面的那张照片留在原地。点照片看大图，点右上角的星星选中。
 export default function Tiles({
   photos,
   urls,
-  tuning,
   selected,
   coverId,
   onOpen,
@@ -42,7 +41,6 @@ export default function Tiles({
 }: {
   photos: Photo[];
   urls: GalleryUrls;
-  tuning: boolean;
   selected: Set<number>;
   coverId?: number;
   onOpen: (p: Photo) => void;
@@ -51,7 +49,7 @@ export default function Tiles({
 }) {
   const box = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
-  const [layout, setLayout] = useState<Layout | null>(loadLayout);
+  const [saved, setSaved] = useState<number | null>(loadColumns);
 
   useLayoutEffect(() => {
     const el = box.current;
@@ -62,44 +60,151 @@ export default function Tiles({
     return () => ro.disconnect();
   }, []);
 
-  const current: Layout = layout ?? { columns: defaultColumns(width), gap: width < 600 ? 4 : 8, radius: 8 };
-  const set = (patch: Partial<Layout>) => {
-    const next = { ...current, ...patch };
-    setLayout(next);
-    saveLayout(next);
-  };
+  const count = Math.min(maxColumns(width), Math.max(1, saved ?? defaultColumns(width)));
+  const phone = width < 600;
+  const gap = phone ? 2 : 4;
+  const radius = count >= 5 ? 2 : phone ? 4 : 6;
+
+  // 缩放手势。最新的列数放在 ref 里，事件处理不用每次重新绑定。
+  const latest = useRef({ count, width });
+  latest.current = { count, width };
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    let scale = 1;
+    let center = { x: 0, y: 0 };
+    let pinching = false;
+    let startDist = 0;
+    let wheelTimer: ReturnType<typeof setTimeout>;
+
+    // 缩放过程中整面照片跟着变大变小，以手指（或鼠标）的位置为中心。
+    const begin = (x: number, y: number) => {
+      const r = el.getBoundingClientRect();
+      center = { x, y };
+      scale = 1;
+      el.style.transition = "none";
+      el.style.transformOrigin = `${x - r.left}px ${y - r.top}px`;
+      el.classList.add("pinching");
+    };
+    const zoom = (s: number) => {
+      scale = Math.min(3, Math.max(0.3, s));
+      el.style.transform = `scale(${scale})`;
+    };
+    // 松手后换列数：每放大（缩小）到 1.6 倍左右少（多）一列，缩放得不够多时弹回去。
+    const end = () => {
+      const { count, width } = latest.current;
+      let next = count - Math.round(Math.log(scale) / Math.log(1.6));
+      if (scale > 1.15) next = Math.min(next, count - 1);
+      if (scale < 0.87) next = Math.max(next, count + 1);
+      next = Math.min(maxColumns(width), Math.max(1, next));
+      el.classList.remove("pinching");
+      if (next === count) {
+        el.style.transition = "";
+        el.style.transform = "";
+        return;
+      }
+      // 记下手指下面那张照片在屏幕上的位置，换列数以后滚动页面让它留在原地。
+      const anchor = document.elementFromPoint(center.x, center.y)?.closest<HTMLElement>(".tile");
+      const before = anchor?.getBoundingClientRect().top;
+      animateSwitch(
+        () => {
+          el.style.transform = "";
+          setSaved(next);
+          saveColumns(next);
+        },
+        () => {
+          if (anchor && before !== undefined && anchor.isConnected) window.scrollBy(0, anchor.getBoundingClientRect().top - before);
+        },
+      );
+    };
+
+    const dist = (t: TouchList) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    const touchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 2) return;
+      pinching = true;
+      startDist = dist(e.touches);
+      begin((e.touches[0].clientX + e.touches[1].clientX) / 2, (e.touches[0].clientY + e.touches[1].clientY) / 2);
+    };
+    const touchMove = (e: TouchEvent) => {
+      if (!pinching || e.touches.length !== 2) return;
+      // 两根手指时不让浏览器滚动或放大整页。
+      e.preventDefault();
+      zoom(dist(e.touches) / startDist);
+    };
+    const touchEnd = (e: TouchEvent) => {
+      if (!pinching || e.touches.length >= 2) return;
+      pinching = false;
+      end();
+    };
+    // 触控板缩放在 Chrome、Edge、Firefox 里是按住 Ctrl 的滚轮。
+    const wheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      if (!el.classList.contains("pinching")) begin(e.clientX, e.clientY);
+      zoom(scale * Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.02 : 0.004)));
+      clearTimeout(wheelTimer);
+      wheelTimer = setTimeout(end, 160);
+    };
+    // Mac 上的 Safari 触控板缩放发的是 gesture 事件；iPhone 上也有，但那边用上面的 touch 事件，这里只拦住整页放大。
+    const touchDevice = "ontouchstart" in window;
+    const gestureStart = (e: Event) => {
+      e.preventDefault();
+      if (!touchDevice) begin((e as MouseEvent).clientX, (e as MouseEvent).clientY);
+    };
+    const gestureChange = (e: Event) => {
+      e.preventDefault();
+      if (!touchDevice) zoom((e as Event & { scale: number }).scale);
+    };
+    const gestureEnd = (e: Event) => {
+      e.preventDefault();
+      if (!touchDevice) end();
+    };
+
+    el.addEventListener("touchstart", touchStart, { passive: true });
+    el.addEventListener("touchmove", touchMove, { passive: false });
+    el.addEventListener("touchend", touchEnd);
+    el.addEventListener("touchcancel", touchEnd);
+    el.addEventListener("wheel", wheel, { passive: false });
+    el.addEventListener("gesturestart", gestureStart);
+    el.addEventListener("gesturechange", gestureChange);
+    el.addEventListener("gestureend", gestureEnd);
+    return () => {
+      clearTimeout(wheelTimer);
+      el.removeEventListener("touchstart", touchStart);
+      el.removeEventListener("touchmove", touchMove);
+      el.removeEventListener("touchend", touchEnd);
+      el.removeEventListener("touchcancel", touchEnd);
+      el.removeEventListener("wheel", wheel);
+      el.removeEventListener("gesturestart", gestureStart);
+      el.removeEventListener("gesturechange", gestureChange);
+      el.removeEventListener("gestureend", gestureEnd);
+    };
+  }, []);
 
   // 没处理好的照片不知道比例，先当成正方形。
-  const columns: Photo[][] = Array.from({ length: current.columns }, () => []);
-  const heights = new Array(current.columns).fill(0);
+  const columns: Photo[][] = Array.from({ length: count }, () => []);
+  const heights = new Array(count).fill(0);
   for (const p of photos) {
     const i = heights.indexOf(Math.min(...heights));
     columns[i].push(p);
     heights[i] += p.width && p.height ? p.height / p.width : 1;
   }
   // 一列比缩略图（长边 400px）宽时用大图，免得糊。
-  const colWidth = width ? (width - current.gap * (current.columns - 1)) / current.columns : 0;
+  const colWidth = width ? (width - gap * (count - 1)) / count : 0;
   const kind = colWidth * (window.devicePixelRatio || 1) > 420 ? "preview" : "thumb";
 
   return (
     <div className="stack tiles-wrap">
-      {tuning && (
-        <div className="tuner">
-          <Slider label="列数" value={current.columns} min={1} max={8} onChange={(columns) => set({ columns })} />
-          <Slider label="间距" value={current.gap} min={0} max={32} onChange={(gap) => set({ gap })} />
-          <Slider label="圆角" value={current.radius} min={0} max={32} onChange={(radius) => set({ radius })} />
-        </div>
-      )}
-      <div ref={box} className="tiles" style={{ gap: current.gap }}>
+      <div ref={box} className="tiles" style={{ gap }}>
         {width > 0 &&
           columns.map((col, i) => (
-            <div key={i} className="tiles-col" style={{ gap: current.gap }}>
+            <div key={i} className="tiles-col" style={{ gap }}>
               {col.map((p) => (
                 <Tile
                   key={p.id}
                   photo={p}
                   src={p.status === "ready" ? urls.photo(p, kind) : ""}
-                  radius={current.radius}
+                  radius={radius}
                   on={selected.has(p.id)}
                   cover={coverId === p.id}
                   onOpen={() => onOpen(p)}
@@ -153,30 +258,6 @@ function Tile({
       <Star on={on} name={p.name} onToggle={onToggle} />
       {cover && <span className="badge">封面</span>}
     </div>
-  );
-}
-
-function Slider({
-  label,
-  value,
-  min,
-  max,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  onChange: (v: number) => void;
-}) {
-  return (
-    <label className="slider">
-      <span>
-        {label}
-        <span className="muted"> {value}</span>
-      </span>
-      <input type="range" min={min} max={max} value={value} onChange={(e) => onChange(e.target.valueAsNumber)} />
-    </label>
   );
 }
 
