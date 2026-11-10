@@ -64,7 +64,6 @@ func (app *App) adminRoutes(api *http.ServeMux) {
 	api.HandleFunc("POST /api/sharephotos/albums/{id}/photos", app.withAlbum(true, app.uploadPhoto))
 	api.HandleFunc("DELETE /api/sharephotos/albums/{id}/photos/{photo}", app.withAlbum(true, app.removePhoto))
 	api.HandleFunc("GET /api/sharephotos/albums/{id}/photos/{photo}/{kind}", app.withAlbum(false, app.servePhoto))
-	api.HandleFunc("GET /api/sharephotos/albums/{id}/zip", app.withAlbum(false, app.serveZip))
 	api.HandleFunc("GET /api/sharephotos/settings", app.getSettings)
 	api.HandleFunc("PUT /api/sharephotos/settings", app.saveSettings)
 }

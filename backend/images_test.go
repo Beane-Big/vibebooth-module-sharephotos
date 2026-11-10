@@ -171,17 +171,6 @@ func TestMakeDerivatives(t *testing.T) {
 	}
 }
 
-func TestUniqueName(t *testing.T) {
-	used := map[string]int{}
-	got := []string{uniqueName(used, "a.jpg"), uniqueName(used, "A.JPG"), uniqueName(used, "a.jpg"), uniqueName(used, "a (2).jpg")}
-	want := []string{"a.jpg", "A (2).JPG", "a (3).jpg", "a (2) (2).jpg"}
-	for i := range want {
-		if got[i] != want[i] {
-			t.Errorf("第 %d 个 = %q，应为 %q", i, got[i], want[i])
-		}
-	}
-}
-
 func TestCleanName(t *testing.T) {
 	for in, want := range map[string]string{
 		"DSC01234.jpg":     "DSC01234.jpg",
