@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { GalleryUrls, Photo } from "../api";
-import { CheckIcon } from "../icons";
+import Star from "./Star";
 import { transitionName } from "./transition";
 
 // 平铺的三个可调参数，存在浏览器里，下次打开还是一样。
@@ -29,28 +29,29 @@ function saveLayout(l: Layout) {
 const defaultColumns = (width: number) => (width < 600 ? 2 : width < 900 ? 3 : 4);
 
 // Tiles 是平铺：照片按原来的比例排成瀑布流，每张放进当前最矮的一列，顺序大致从左到右、从上到下。
-// 上面的“调整平铺”可以改列数、间距和圆角。
+// 照片墙上的“调整平铺”打开 tuning 时，上面显示改列数、间距和圆角的滑块。点照片看大图，点右上角的星星选中。
 export default function Tiles({
   photos,
   urls,
-  selecting,
+  tuning,
   selected,
   coverId,
-  onTap,
+  onOpen,
+  onToggle,
   onDeleteFailed,
 }: {
   photos: Photo[];
   urls: GalleryUrls;
-  selecting: boolean;
+  tuning: boolean;
   selected: Set<number>;
   coverId?: number;
-  onTap: (p: Photo) => void;
+  onOpen: (p: Photo) => void;
+  onToggle: (p: Photo) => void;
   onDeleteFailed?: (p: Photo) => void;
 }) {
   const box = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   const [layout, setLayout] = useState<Layout | null>(loadLayout);
-  const [tuning, setTuning] = useState(false);
 
   useLayoutEffect(() => {
     const el = box.current;
@@ -82,11 +83,6 @@ export default function Tiles({
 
   return (
     <div className="stack tiles-wrap">
-      <div className="tiles-tools">
-        <button className="pill" onClick={() => setTuning(!tuning)} aria-expanded={tuning}>
-          {tuning ? "收起" : "调整平铺"}
-        </button>
-      </div>
       {tuning && (
         <div className="tuner">
           <Slider label="列数" value={current.columns} min={1} max={8} onChange={(columns) => set({ columns })} />
@@ -104,10 +100,10 @@ export default function Tiles({
                   photo={p}
                   src={p.status === "ready" ? urls.photo(p, kind) : ""}
                   radius={current.radius}
-                  selecting={selecting}
                   on={selected.has(p.id)}
                   cover={coverId === p.id}
-                  onTap={() => onTap(p)}
+                  onOpen={() => onOpen(p)}
+                  onToggle={() => onToggle(p)}
                   onDeleteFailed={onDeleteFailed && (() => onDeleteFailed(p))}
                 />
               ))}
@@ -122,19 +118,19 @@ function Tile({
   photo: p,
   src,
   radius,
-  selecting,
   on,
   cover,
-  onTap,
+  onOpen,
+  onToggle,
   onDeleteFailed,
 }: {
   photo: Photo;
   src: string;
   radius: number;
-  selecting: boolean;
   on: boolean;
   cover: boolean;
-  onTap: () => void;
+  onOpen: () => void;
+  onToggle: () => void;
   onDeleteFailed?: () => void;
 }) {
   const ratio = p.width && p.height ? `${p.width} / ${p.height}` : "1";
@@ -150,23 +146,11 @@ function Tile({
       </div>
     );
   return (
-    <div
-      className={"tile" + (on ? " on" : "")}
-      style={{ aspectRatio: ratio, borderRadius: radius, viewTransitionName: transitionName(p) }}
-    >
-      <button
-        className="tile-button"
-        aria-label={selecting ? `选择 ${p.name}` : `查看 ${p.name}`}
-        aria-pressed={selecting ? on : undefined}
-        onClick={onTap}
-      >
-        <img src={src} alt="" loading="lazy" decoding="async" style={{ borderRadius: on ? Math.max(0, radius - 4) : 0 }} />
+    <div className="tile" style={{ aspectRatio: ratio, borderRadius: radius, viewTransitionName: transitionName(p) }}>
+      <button className="tile-button" aria-label={`查看 ${p.name}`} onClick={onOpen}>
+        <img src={src} alt="" loading="lazy" decoding="async" />
       </button>
-      {selecting && (
-        <span className="check" aria-hidden>
-          {on && <CheckIcon />}
-        </span>
-      )}
+      <Star on={on} name={p.name} onToggle={onToggle} />
       {cover && <span className="badge">封面</span>}
     </div>
   );

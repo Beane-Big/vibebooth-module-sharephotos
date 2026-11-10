@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type PointerEvent } from "react";
+import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import { downloadMinutes, formatBytes, inWeChat, onIOS, type GalleryUrls, type Photo } from "../api";
 import { CloseIcon, DownloadIcon, NextIcon, PrevIcon } from "../icons";
 import Cards from "./Cards";
@@ -12,26 +12,37 @@ export type Manage = {
   onDelete: (p: Photo) => Promise<void>;
 };
 
-// Gallery 是门户和分享页共用的照片墙：可以切换“卡片”和“平铺”两种看法，点开看大图，选几张或全部下载原图。
-// 选择照片时总是用平铺，一眼能看到选了哪些。
+// Gallery 是门户和分享页共用的照片墙：可以切换“卡片”和“平铺”两种看法，点开看大图，点星星选几张或全部下载原图。
+// 最上面只有两行：第一行左边是相册名称（title），右边是切换看法、下载全部和页面自己的按钮（actions）；
+// 第二行是有效期、张数、大小这些说明（meta 加上照片墙自己的），平铺时右边是“调整平铺”。
 // 下载走后端的总带宽限制，所以按限速估计要几分钟，让家人知道大概要等多久。
 export default function Gallery({
   photos,
   urls,
   rateMbps,
   manage,
+  title,
+  actions,
+  meta,
+  empty,
+  children,
 }: {
   photos: Photo[];
   urls: GalleryUrls;
   rateMbps: number;
   manage?: Manage;
+  title: ReactNode;
+  actions?: ReactNode;
+  meta: (string | false | undefined)[];
+  empty: ReactNode; // 一张照片都没有时显示
+  children?: ReactNode; // 放在两行下面、照片上面，比如提示和上传进度
 }) {
   const ready = photos.filter((p) => p.status === "ready");
-  const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   // 正在看的照片 id；按 id 而不是序号记，上传者删了前面的照片也不会跳到别的照片。
   const [open, setOpen] = useState<number | null>(null);
   const [view, setView] = useStoredView();
+  const [tuning, setTuning] = useState(false);
   // 卡片第一次出现时播放展开动画；切换过来时不播，免得和切换动画叠在一起。
   const [intro, setIntro] = useState(true);
   // 卡片停在第几张，切到平铺再切回来、看完大图回来时接着从这张看。
@@ -45,6 +56,7 @@ export default function Gallery({
   const total = ready.reduce((n, p) => n + p.size, 0);
   const picked = ready.filter((p) => selected.has(p.id));
   const pickedBytes = picked.reduce((n, p) => n + p.size, 0);
+  const cards = view === "cards" && ready.length > 0;
 
   function toggle(p: Photo) {
     setSelected((s) => {
@@ -55,14 +67,7 @@ export default function Gallery({
     });
   }
 
-  function stopSelecting() {
-    morph(() => {
-      setSelecting(false);
-      setSelected(new Set());
-    });
-  }
-
-  // morph 在卡片和平铺之间切换（包括开始、结束选择），每张照片从原来的位置平滑地移到新位置。
+  // morph 在卡片和平铺之间切换，每张照片从原来的位置平滑地移到新位置。
   function morph(change: () => void) {
     animateSwitch(() => {
       setIntro(false);
@@ -73,95 +78,107 @@ export default function Gallery({
   // 只选了一张时直接下载那张原图，不打包。
   const pickedUrl = picked.length === 1 ? urls.photo(picked[0], "original") : urls.zip(picked.map((p) => p.id));
 
+  const info = [
+    ...meta,
+    photos.length > 0 && `${ready.length} 张 · ${formatBytes(total)}`,
+    ready.length > 0 && !inWeChat && `全部下载约 ${downloadMinutes(total, rateMbps)} 分钟`,
+  ].filter(Boolean);
+
   return (
     <div className="stack gallery">
-      <div className="gallery-bar">
-        <span className="muted">
-          {ready.length} 张 · {formatBytes(total)}
+      <div className="gallery-head">
+        <div className="gallery-title">{title}</div>
+        <div className="head-actions">
+          {ready.length > 0 && (
+            <div className={"segmented" + (view === "tiles" ? " second" : "")} role="group" aria-label="看法">
+              <button className={view === "cards" ? "on" : ""} aria-pressed={view === "cards"} onClick={() => view !== "cards" && morph(() => setView("cards"))}>
+                卡片
+              </button>
+              <button className={view === "tiles" ? "on" : ""} aria-pressed={view === "tiles"} onClick={() => view !== "tiles" && morph(() => setView("tiles"))}>
+                平铺
+              </button>
+            </div>
+          )}
+          {ready.length > 0 && !inWeChat && (
+            <a className="pill" href={urls.zip()} download aria-label="下载全部">
+              <DownloadIcon />
+              <span className="pill-text">下载全部</span>
+            </a>
+          )}
+          {actions}
+        </div>
+      </div>
+      <div className="gallery-meta">
+        <span className="muted meta grow">
+          {info.map((text, i) => (
+            <span key={i}>{text}</span>
+          ))}
         </span>
-        {ready.length > 0 && (
-          <div className="actions">
-            {!selecting && (
-              <div className={"segmented" + (view === "tiles" ? " second" : "")} role="group" aria-label="看法">
-                <button className={view === "cards" ? "on" : ""} aria-pressed={view === "cards"} onClick={() => view !== "cards" && morph(() => setView("cards"))}>
-                  卡片
-                </button>
-                <button className={view === "tiles" ? "on" : ""} aria-pressed={view === "tiles"} onClick={() => view !== "tiles" && morph(() => setView("tiles"))}>
-                  平铺
-                </button>
-              </div>
-            )}
-            <button className="secondary" onClick={() => (selecting ? stopSelecting() : morph(() => setSelecting(true)))}>
-              {selecting ? "取消选择" : "选择"}
-            </button>
-            {!selecting && !inWeChat && (
-              <a className="button secondary" href={urls.zip()} download>
-                <DownloadIcon />
-                下载全部
-              </a>
-            )}
-          </div>
+        {!cards && ready.length > 0 && (
+          <button className="pill" onClick={() => setTuning(!tuning)} aria-expanded={tuning}>
+            {tuning ? "收起" : "调整平铺"}
+          </button>
         )}
       </div>
-      {ready.length > 0 && !selecting && !inWeChat && (
-        <p className="muted">
-          下载全部是一个 zip 压缩包，按现在的网速大约要 {downloadMinutes(total, rateMbps)} 分钟；只要几张的话点“选择”。
-        </p>
-      )}
       {inWeChat && ready.length > 0 && (
         <p className="hint">
           微信里不能下载压缩包：要一次下载多张，请点右上角“···”，选“在浏览器打开”。单张照片可以点开后看原图，长按保存。
         </p>
       )}
+      {children}
 
-      {view === "cards" && !selecting && ready.length > 0 ? (
+      {photos.length === 0 ? (
+        empty
+      ) : cards ? (
         <Cards
           photos={ready}
           urls={urls}
           paused={open !== null}
           intro={intro}
           start={cardIndex}
+          selected={selected}
           onIndex={setCardIndex}
           onOpen={(p) => setOpen(p.id)}
+          onToggle={toggle}
         />
       ) : (
         <Tiles
           photos={manage ? photos : ready}
           urls={urls}
-          selecting={selecting}
+          tuning={tuning}
           selected={selected}
           coverId={manage?.coverId}
-          onTap={(p) => (selecting ? toggle(p) : setOpen(p.id))}
+          onOpen={(p) => setOpen(p.id)}
+          onToggle={toggle}
           onDeleteFailed={manage?.onDelete}
         />
       )}
 
-      {selecting && (
+      {picked.length > 0 && (
         <div className="select-bar">
           <span className="select-count">
             已选 {picked.length} 张
-            {picked.length > 0 && (
-              <span className="muted">
-                {" "}
-                · {formatBytes(pickedBytes)} · 约 {downloadMinutes(pickedBytes, rateMbps)} 分钟
-              </span>
-            )}
+            <span className="muted">
+              {" "}
+              · {formatBytes(pickedBytes)} · 约 {downloadMinutes(pickedBytes, rateMbps)} 分钟
+            </span>
           </span>
           <div className="actions">
-            <button
-              className="secondary"
-              onClick={() => setSelected(picked.length === ready.length ? new Set() : new Set(ready.map((p) => p.id)))}
-            >
-              {picked.length === ready.length ? "全不选" : "全选"}
+            {picked.length < ready.length && (
+              <button className="secondary" onClick={() => setSelected(new Set(ready.map((p) => p.id)))}>
+                全选
+              </button>
+            )}
+            <button className="secondary" onClick={() => setSelected(new Set())}>
+              清空
             </button>
             {inWeChat ? (
               <span className="muted">请在浏览器里下载</span>
-            ) : picked.length > 0 ? (
-              <a className="button" href={pickedUrl} download onClick={() => setTimeout(stopSelecting, 0)}>
+            ) : (
+              // 开始下载以后清空星星，免得下一次又把这几张带上。
+              <a className="button" href={pickedUrl} download onClick={() => setTimeout(() => setSelected(new Set()), 0)}>
                 下载
               </a>
-            ) : (
-              <button disabled>下载</button>
             )}
           </div>
         </div>

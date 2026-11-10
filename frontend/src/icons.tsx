@@ -56,9 +56,10 @@ export const NextIcon = () => (
   </svg>
 );
 
-export const CheckIcon = () => (
-  <svg {...base} width={14} height={14} strokeWidth={3}>
-    <path d="M5 12.5l4.5 4.5L19 7.5" />
+// 选照片用的星星：没选是空心，选中是实心。
+export const StarIcon = ({ filled }: { filled: boolean }) => (
+  <svg {...base} fill={filled ? "currentColor" : "none"}>
+    <path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" />
   </svg>
 );
 

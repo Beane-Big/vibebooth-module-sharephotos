@@ -88,9 +88,8 @@ export default function Album({ id, settings = false }: { id: number; settings?:
       返回相册
     </a>
   ) : (
-    <a className="pill" href="/apps/sharephotos/" aria-label="全部相册">
+    <a className="pill back" href="/apps/sharephotos/" aria-label="全部相册" title="全部相册">
       <BackIcon />
-      <span className="narrow-hide">全部相册</span>
     </a>
   );
 
@@ -123,59 +122,47 @@ export default function Album({ id, settings = false }: { id: number; settings?:
     );
   return (
     <main className="content wide stack">
-      <div className="page-head">
-        {back}
-        {a.mine && (
-          <div className="head-actions">
-            <button className="pill" onClick={() => copyShare(a)}>
-              <LinkIcon />
-              {copied === "ok" ? (
-                "已复制"
-              ) : (
-                <>
-                  复制<span className="wide-only">分享</span>链接
-                </>
-              )}
-            </button>
-            <ImportButton uploads={uploads} />
-            <a className="pill" href={albumPath(id) + "/settings/"}>
-              <SettingsIcon />
-              设置
-            </a>
-          </div>
-        )}
-      </div>
-      {copied === "failed" && <p className="error">这个浏览器不让复制，请到“设置”里长按链接手动复制。</p>}
-      {copied === "ok" && <p className="success">已复制链接{a.code ? "和提取码" : ""}，可以粘贴到微信里发给家人。</p>}
       {dropping && <div className="drop-overlay">松开就导入这些照片</div>}
-      {a.mine && a.expired && (
-        <p className="hint">链接已经到期，家人打不开了。到右上角“设置”里续期，原来的链接马上恢复。</p>
-      )}
-      <section className="album-head">
-        <h1 className="page-title">{a.title}</h1>
-        <span className="muted meta">
-          {[!a.mine && a.ownerName && `${a.ownerName} 分享`, expiryText(a)]
-            .filter(Boolean)
-            .map((text, i) => (
-              <span key={i}>{text}</span>
-            ))}
-        </span>
+      <Gallery
+        photos={detail.photos}
+        urls={albumUrls(a.id)}
+        rateMbps={detail.rateMbps}
+        manage={a.mine ? { coverId: a.cover, onCover: (p) => save({ coverId: p.id }, setError), onDelete: removePhoto } : undefined}
+        title={
+          <>
+            {back}
+            <h1 className="page-title">{a.title}</h1>
+          </>
+        }
+        actions={
+          a.mine && (
+            <>
+              <button className="pill" onClick={() => copyShare(a)} aria-label="复制分享链接">
+                <LinkIcon />
+                <span className="pill-text">{copied === "ok" ? "已复制" : "复制分享链接"}</span>
+              </button>
+              <ImportButton uploads={uploads} />
+              <a className="pill" href={albumPath(id) + "/settings/"} aria-label="设置">
+                <SettingsIcon />
+                <span className="pill-text">设置</span>
+              </a>
+            </>
+          )
+        }
+        meta={[!a.mine && a.ownerName && `${a.ownerName} 分享`, a.expired ? "链接已到期" : `${formatDate(a.expiresAt)}前有效`]}
+        empty={
+          <p className="card muted">{a.mine ? "还没有照片，点右上角“导入”，或者把照片拖到这个页面上。" : "这个相册里还没有照片。"}</p>
+        }
+      >
         {a.note && <p className="note">{a.note}</p>}
-      </section>
-
-      {a.mine && <UploadStatus uploads={uploads} />}
-
-      {error && <p className="error">{error}</p>}
-      {detail.photos.length === 0 ? (
-        <p className="card muted">{a.mine ? "还没有照片，点右上角“导入”，或者把照片拖到这个页面上。" : "这个相册里还没有照片。"}</p>
-      ) : (
-        <Gallery
-          photos={detail.photos}
-          urls={albumUrls(a.id)}
-          rateMbps={detail.rateMbps}
-          manage={a.mine ? { coverId: a.cover, onCover: (p) => save({ coverId: p.id }, setError), onDelete: removePhoto } : undefined}
-        />
-      )}
+        {copied === "failed" && <p className="error">这个浏览器不让复制，请到“设置”里长按链接手动复制。</p>}
+        {copied === "ok" && <p className="success">已复制链接{a.code ? "和提取码" : ""}，可以粘贴到微信里发给家人。</p>}
+        {a.mine && a.expired && (
+          <p className="hint">链接已经到期，家人打不开了。到右上角“设置”里续期，原来的链接马上恢复。</p>
+        )}
+        {a.mine && <UploadStatus uploads={uploads} />}
+        {error && <p className="error">{error}</p>}
+      </Gallery>
     </main>
   );
 }

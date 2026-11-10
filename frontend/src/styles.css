@@ -266,10 +266,14 @@ button.link.danger-link { color: var(--danger); }
 .failed-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .failed-list li { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; }
 
-/* 照片墙的工具条：张数、卡片/平铺切换、选择、下载全部。 */
+/* 照片墙最上面的两行：相册名称和按钮一行，说明和“调整平铺”一行。 */
 .gallery { gap: 12px; }
 .gallery > p { margin: 0; }
-.gallery-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 0 4px; }
+.gallery-head { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; }
+.gallery-title { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1 1 auto; }
+.gallery-title .page-title { font-size: 24px; overflow-wrap: anywhere; min-width: 0; }
+.gallery-meta { display: flex; align-items: center; gap: 12px; min-height: 34px; padding: 0 4px; font-size: 14px; }
+.pill.back { padding: 8px; }
 /* 两个按钮拼成的切换开关，选中的那个是实心的。 */
 /* 底下的白色滑块跟着选中的那一边滑过去。 */
 .segmented { position: relative; display: inline-grid; grid-template-columns: 1fr 1fr; padding: 2px; border: 1px solid var(--border); border-radius: 999px; background: var(--glass); }
@@ -297,10 +301,7 @@ button.link.danger-link { color: var(--danger); }
 .tile-button { display: block; width: 100%; height: 100%; padding: 0; border-radius: 0; background: none; }
 .tile img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform 0.15s, opacity 0.15s; }
 .tile-button:hover img { opacity: 0.9; }
-.tile.on img { transform: scale(0.9); }
-.tile.on { background: color-mix(in srgb, var(--accent) 18%, var(--bg)); }
 .tile.pending { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 1px dashed var(--border); }
-.tiles-tools { display: flex; justify-content: flex-end; }
 /* 调整平铺的面板：三个滑块排成一行，窄屏上竖着排。 */
 .tuner {
   display: grid;
@@ -352,26 +353,26 @@ input[type="range"] { flex: none; padding: 0; border: 0; background: none; accen
 .cards-caption { display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 14px; font-variant-numeric: tabular-nums; }
 .cards-caption input { width: min(100%, 360px); }
 
-/* 选择时右上角的圆圈，选中后变成主题色的勾。 */
-.check {
+/* 照片右上角的星星：平时是白色空心，选中后是金色实心。照片颜色各不相同，加一圈阴影保证看得清。 */
+.star {
   position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 2px solid #fff;
-  background: rgb(0 0 0 / 0.25);
-  color: #fff;
+  top: 4px;
+  right: 4px;
+  z-index: 1;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
+  padding: 6px;
+  border-radius: 50%;
+  background: none;
+  color: #fff;
+  filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.6));
+  transition: transform 0.15s, color 0.15s;
 }
-.tile.on .check { background: var(--accent); border-color: var(--accent); }
+.star:hover { transform: scale(1.12); }
+.star:active { transform: scale(0.92); }
+.star.on { color: #ffc93c; }
 .badge { position: absolute; left: 6px; bottom: 6px; padding: 1px 6px; border-radius: 4px; font-size: 12px; color: #fff; background: rgb(0 0 0 / 0.55); pointer-events: none; }
 
-/* 选择照片时贴在屏幕底部的一条：选了几张、多大、下载。 */
+/* 点了星星以后贴在屏幕底部的一条：选了几张、多大、下载。 */
 .select-bar {
   position: sticky;
   bottom: 12px;
@@ -450,7 +451,7 @@ input[type="range"] { flex: none; padding: 0; border: 0; background: none; accen
   .share > :first-child:not(.hero) { margin-top: 24px; }
   .share .hero { border-radius: 0; max-height: 44vh; }
   .share > :not(.hero):not(.gallery) { margin-left: 16px; margin-right: 16px; }
-  .share .gallery-bar, .share .gallery > p, .share .cards-caption, .share .tiles-tools, .share .tuner { margin: 0 16px; }
+  .share .gallery-head, .share .gallery-meta, .share .gallery > p, .share .gallery > .card, .share .cards-caption, .share .tuner { margin: 0 16px; }
   .share .select-bar { margin: 0 12px; }
 }
 
@@ -467,7 +468,7 @@ input[type="range"] { flex: none; padding: 0; border: 0; background: none; accen
   .gallery.switching .cards-wrap, .gallery.switching .tiles-wrap { animation: none; }
 }
 
-/* 相册页右上角的几个按钮：复制分享链接、导入、设置。 */
+/* 相册页右上角的几个按钮：卡片/平铺、下载全部、复制分享链接、导入、设置。 */
 .head-actions { margin-left: auto; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 label.pill { cursor: pointer; }
 label.pill:focus-within { color: var(--accent); border-color: var(--accent); }
@@ -490,14 +491,16 @@ label.pill:focus-within { color: var(--accent); border-color: var(--accent); }
 /* 设置页里分享设置下面接着名称、说明等，分隔线用上面最后一行的下边框。 */
 .settings-more { padding-top: 4px; }
 .pill { white-space: nowrap; }
-/* 手机上右上角放三个按钮，按钮收窄一点，“复制分享链接”写成“复制链接”，和“全部相册”挤在一行。 */
+/* 手机上名称单独一行，按钮换到下一行，除了卡片/平铺都只留图标（复制链接后有一行文字提示）。 */
 @media (max-width: 600px) {
   .page-head { gap: 6px; }
-  .head-actions { gap: 6px; flex-wrap: nowrap; }
+  .head-actions { gap: 6px; margin-left: 0; }
+  .gallery-title { flex-basis: 100%; }
   .page-head .pill { padding: 6px 10px; font-size: 13px; gap: 4px; }
-  .wide-only { display: none; }
-}
-/* 很窄的手机（比如 iPhone SE）上“全部相册”只留箭头，右边三个按钮才放得下。 */
-@media (max-width: 380px) {
-  .narrow-hide { display: none; }
+  .gallery-head .pill { padding: 7px; }
+  .gallery-head .pill-text { display: none; }
+  .gallery-head .segmented button { padding: 5px 12px; font-size: 13px; }
+  /* 分享页只有一个“下载全部”，放得下文字。 */
+  .share .gallery-head .pill { padding: 6px 12px; }
+  .share .gallery-head .pill-text { display: inline; }
 }

@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from "react";
 import type { GalleryUrls, Photo } from "../api";
+import Star from "./Star";
 import { transitionName } from "./transition";
 
 // 前后各画多少张；再远的看不清，不画能省下很多图片请求。
@@ -7,22 +8,27 @@ const visible = 14;
 
 // Cards 是卡片：照片像一叠卡片水平排成一行，都正对着人，当前这张在正中最大，两边的往后退、越远越小。
 // 打开时先叠成一摞再展开。左右滑动、滚轮或方向键换一张，点中间这张看大图，点旁边的跳过去，下面的滑块可以快速拖到任意一张。
+// 每张右上角有星星，点了选中。
 export default function Cards({
   photos,
   urls,
   paused,
   intro,
   start,
+  selected,
   onIndex,
   onOpen,
+  onToggle,
 }: {
   photos: Photo[];
   urls: GalleryUrls;
   paused: boolean; // 看大图时不响应方向键
   intro: boolean; // 第一次打开时播放从一摞展开的动画；从平铺切过来时由切换动画负责，不再播放
   start: number; // 从第几张开始：切回卡片、看完大图时停在上次看的那张
+  selected: Set<number>;
   onIndex: (i: number) => void;
   onOpen: (p: Photo) => void;
+  onToggle: (p: Photo) => void;
 }) {
   const stage = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
@@ -197,6 +203,7 @@ export default function Cards({
                 }}
               >
                 <img src={urls.photo(p, a < 1.5 ? "preview" : "thumb")} alt="" draggable={false} data-index={i} />
+                <Star on={selected.has(p.id)} name={p.name} onToggle={() => onToggle(p)} />
               </div>
             );
           })}
