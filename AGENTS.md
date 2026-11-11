@@ -23,7 +23,7 @@
   - 后端只在 `backend/share.go` 里给这几个具体路径挂免登录的处理，访问由链接里 128 位的令牌、有效期和可选的提取码控制；不要用“路径以 s/ 开头”之类的判断跳过登录，`%2F` 会被解码成 `/`。
   - 前端的分享页单独构建（`frontend/vite.share.config.ts`，入口 `frontend/s/index.html` 和 `src/share/`），页面、脚本和图标都放在 `dist/s/` 下；管理页的 `assets/` 要登录，分享页不能引用它。分享页只用 `src/share/` 里自己的请求函数，不经过 `platform.ts`，401 表示还没输提取码，不能跳去登录。
   - 新加免登录的接口时，想清楚没有令牌的人能拿到什么。
-- 照片只收 JPEG。上传时边写边去掉 EXIF 里的 GPS 和 XMP（`backend/images.go`），再由一个后台任务逐张生成 2048px 预览图和 400px 缩略图，纯 Go，不要引入要 CGO 的图像库。
+- 照片收手机能打开的几种：JPEG、PNG、WebP、HEIC/HEIF（含相机的 .HIF，上传时改成 .heif）、GIF。格式按文件内容判断（`backend/formats.go`），原图原样保存，只去掉位置信息：EXIF 里的 GPS 清零、XMP 去掉；HEIF 写完后就地处理，文件长度不变。再由一个后台任务逐张生成 2048px 预览图和 400px 缩略图（都是 JPEG；GIF 取第一帧，看大图时直接放原图）。解码用纯 Go，不要引入要 CGO 的图像库；HEIF 例外，用镜像里装的 libheif 命令行 `heif-dec` 转成 JPEG 再解码。原图文件仍叫 `<id>.jpg`，下载时按文件名的扩展名给 Content-Type。
 - 下载原图走总带宽限制（设置页“下载限速”）。批量下载是前端一张一张下原图（`components/Downloader.tsx`），不用 zip：断了用 Range 续传，关页面后能接着下。电脑上的 Chrome、Edge 选文件夹直接写入，iPhone 每 10 张用系统分享面板“存储图像”，其他浏览器逐张存到“下载”。
 - 微信内置浏览器不能批量下载：前端在微信里不显示下载全部，单张照片显示原图让人长按保存（`inline=1`）。
 

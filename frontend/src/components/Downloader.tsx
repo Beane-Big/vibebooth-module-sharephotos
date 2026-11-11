@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { formatBytes, onIOS, type GalleryUrls, type Photo } from "../api";
+import { formatBytes, onIOS, photoType, type GalleryUrls, type Photo } from "../api";
 import { CloseIcon, PhotoIcon } from "../icons";
 import { speedText } from "./speed";
 
@@ -117,7 +117,7 @@ function memorySink(name: string): Sink {
   return {
     write: async (c) => void parts.push(c as Uint8Array<ArrayBuffer>),
     restart: async () => void (parts = []),
-    close: async () => new File(parts, name, { type: "image/jpeg" }),
+    close: async () => new File(parts, name, { type: photoType(name) }),
     abort: async () => void (parts = []),
   };
 }
@@ -654,7 +654,7 @@ export function DownloadPanel({ downloads: d }: { downloads: Downloads }) {
             <PhotoIcon />
             {d.sharing ? "正在打开…" : `存到相册（${d.unsaved} 张）`}
           </button>
-          <span className="muted">{d.shareHint || "在弹出的面板里选“存储图像”"}</span>
+          {d.shareHint && <span className="muted">{d.shareHint}</span>}
         </div>
       )}
     </section>

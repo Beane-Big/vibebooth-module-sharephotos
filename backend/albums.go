@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"image"
 	"io"
 	"log/slog"
 	"mime"
@@ -312,10 +313,6 @@ func (app *App) uploadPhoto(w http.ResponseWriter, r *http.Request, a *Album) {
 		}
 	}
 	name := cleanName(part.FileName())
-	if ext := strings.ToLower(filepath.Ext(name)); ext != ".jpg" && ext != ".jpeg" {
-		writeError(w, http.StatusBadRequest, name+" 不是 JPEG，只能上传 .jpg 照片")
-		return
-	}
 	dir := app.files.albumDir(a.ID)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		slog.Error("建相册目录失败", "err", err)
@@ -329,7 +326,8 @@ func (app *App) uploadPhoto(w http.ResponseWriter, r *http.Request, a *Album) {
 		return
 	}
 	defer os.Remove(tmp.Name())
-	meta, err := cleanJPEG(part, tmp)
+	// 格式按文件内容判断，不看扩展名；写入时顺便去掉位置信息（HEIF 写完后再就地处理）。
+	format, meta, err := cleanImage(part, tmp)
 	if cerr := tmp.Close(); err == nil {
 		err = cerr
 	}
@@ -338,15 +336,23 @@ func (app *App) uploadPhoto(w http.ResponseWriter, r *http.Request, a *Album) {
 		switch {
 		case errors.As(err, &tooBig):
 			writeError(w, http.StatusRequestEntityTooLarge, name+" 超过 80 MB")
-		case errors.Is(err, errNotJPEG):
-			writeError(w, http.StatusBadRequest, name+" 不是 JPEG 图片")
+		case errors.Is(err, errUnsupported), errors.Is(err, errNotJPEG):
+			writeError(w, http.StatusBadRequest, name+" "+errUnsupported.Error())
 		default:
 			slog.Warn("上传的照片读取失败", "name", name, "err", err)
 			writeError(w, http.StatusBadRequest, name+" 没有传完整，请重试")
 		}
 		return
 	}
-	cfg, err := imageConfig(tmp.Name())
+	var cfg image.Config
+	if format == formatHEIF {
+		meta, cfg, err = cleanHEIF(tmp.Name())
+		if err == nil {
+			err = checkPixels(cfg)
+		}
+	} else {
+		cfg, err = imageConfig(tmp.Name())
+	}
 	if err != nil {
 		writeError(w, http.StatusBadRequest, name+"："+err.Error())
 		return
@@ -360,6 +366,7 @@ func (app *App) uploadPhoto(w http.ResponseWriter, r *http.Request, a *Album) {
 	if meta.Orientation >= 5 {
 		width, height = height, width
 	}
+	name = fileName(name, format)
 	p := &Photo{AlbumID: a.ID, Name: name, Size: info.Size(), Width: width, Height: height, TakenAt: meta.TakenAt, Status: statusProcessing}
 	if err := app.store.AddPhoto(r.Context(), p); err != nil {
 		slog.Error("保存照片记录失败", "err", err)
