@@ -399,14 +399,9 @@ input[type="range"] { flex: none; padding: 0; border: 0; background: none; accen
   min-height: 48px;
   font-size: 16px;
   font-weight: 600;
-  border-radius: 12px;
   touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 0.1s, opacity 0.15s;
 }
 .save-photos-button svg { width: 22px; height: 22px; }
-.save-photos-button:active:not(:disabled) { transform: scale(0.97); opacity: 0.85; }
-.save-photos-button:disabled { opacity: 0.7; }
 @media (max-width: 600px) {
   .download-row { grid-template-columns: minmax(0, 1fr) auto; }
   .download-size { display: none; }
@@ -524,4 +519,78 @@ label.pill:focus-within { color: var(--accent); border-color: var(--accent); }
   /* 分享页只有一个“下载全部”，放得下文字。 */
   .share .gallery-head .pill { padding: 6px 12px; }
   .share .gallery-head .pill-text { display: inline; }
+}
+
+/* ---- 主按钮（原来的蓝色按钮：保存、下载原图、存到相册、复制分享文字等）----
+   参照 iOS 27 的液态玻璃：12px 圆角、淡蓝色的半透明磨砂玻璃，左上和右下一道蓝色光边，字是深灰色。
+   鼠标悬停时蓝色深一些，按下时再深一些，并轻轻缩一下再弹回。
+   次要按钮、胶囊按钮、图标按钮、危险按钮都保持原样，不在这里。 */
+:root {
+  --primary-fill: rgb(220 234 252 / 0.75);
+  --primary-fill-hover: rgb(200 223 250 / 0.88);
+  --primary-fill-active: rgb(180 210 247 / 0.95);
+  --primary-rim: rgb(66 133 244 / 0.6); /* 左上、右下的蓝色光边 */
+  --primary-rim-strong: rgb(66 133 244 / 0.9);
+  --primary-highlight: rgb(255 255 255 / 0.9); /* 上沿的高光 */
+  --primary-text: #3a3a3f;
+  --primary-shadow: 0 1px 2px rgb(30 80 160 / 0.08), 0 6px 18px rgb(30 80 160 / 0.12);
+  --press: cubic-bezier(0.3, 1.6, 0.6, 1); /* 松手时带一点回弹 */
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --primary-fill: rgb(110 160 240 / 0.18);
+    --primary-fill-hover: rgb(110 160 240 / 0.27);
+    --primary-fill-active: rgb(110 160 240 / 0.36);
+    --primary-rim: rgb(120 170 255 / 0.5);
+    --primary-rim-strong: rgb(120 170 255 / 0.8);
+    --primary-highlight: rgb(255 255 255 / 0.18);
+    --primary-text: #d1d1d6;
+    --primary-shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 6px 18px rgb(0 0 0 / 0.3);
+  }
+}
+/* 看大图时是黑底，按深色的样子来。 */
+.lightbox {
+  --primary-fill: rgb(110 160 240 / 0.18);
+  --primary-fill-hover: rgb(110 160 240 / 0.27);
+  --primary-fill-active: rgb(110 160 240 / 0.36);
+  --primary-rim: rgb(120 170 255 / 0.5);
+  --primary-rim-strong: rgb(120 170 255 / 0.8);
+  --primary-highlight: rgb(255 255 255 / 0.18);
+  --primary-text: #d1d1d6;
+  --primary-shadow: none;
+}
+
+button:not(.secondary, .link, .icon, .pill, .danger, .tile-button, .star, .lightbox-nav, .segmented button),
+a.button:not(.secondary) {
+  --fill: var(--primary-fill);
+  --rim: var(--primary-rim);
+  /* 1px 透明边框里画渐变：左上、右下是蓝色，中间淡掉，就是那道光边。 */
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background:
+    linear-gradient(var(--fill), var(--fill)) padding-box,
+    linear-gradient(135deg, var(--rim), transparent 35%, transparent 65%, var(--rim)) border-box;
+  -webkit-backdrop-filter: blur(24px) saturate(190%);
+  backdrop-filter: blur(24px) saturate(190%);
+  color: var(--primary-text);
+  font-weight: 600;
+  box-shadow: inset 0 1px 0 var(--primary-highlight), var(--primary-shadow);
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.35s var(--press), box-shadow 0.2s;
+}
+button:not(.secondary, .link, .icon, .pill, .danger, .tile-button, .star, .lightbox-nav, .segmented button):hover:not(:disabled),
+a.button:not(.secondary):hover { --fill: var(--primary-fill-hover); --rim: var(--primary-rim-strong); }
+button:not(.secondary, .link, .icon, .pill, .danger, .tile-button, .star, .lightbox-nav, .segmented button):active:not(:disabled),
+a.button:not(.secondary):active { --fill: var(--primary-fill-active); --rim: var(--primary-rim-strong); transform: scale(0.95); transition-duration: 0.1s; }
+
+@media (prefers-reduced-transparency: reduce) {
+  :root { --primary-fill: rgb(220 234 252); --primary-fill-hover: rgb(200 223 250); --primary-fill-active: rgb(180 210 247); }
+  .lightbox { --primary-fill: rgb(38 52 78); --primary-fill-hover: rgb(46 64 96); --primary-fill-active: rgb(54 76 114); }
+  button, a.button { -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+@media (prefers-reduced-transparency: reduce) and (prefers-color-scheme: dark) {
+  :root { --primary-fill: rgb(38 52 78); --primary-fill-hover: rgb(46 64 96); --primary-fill-active: rgb(54 76 114); }
+}
+@media (prefers-reduced-motion: reduce) {
+  button:active:not(:disabled), a.button:active { transform: none; }
 }
