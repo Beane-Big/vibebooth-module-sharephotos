@@ -46,11 +46,13 @@ func (app *App) servePhoto(w http.ResponseWriter, r *http.Request, a *Album) {
 	}
 	// 照片的 id 不会复用、内容不会变，浏览器可以一直缓存；private 表示只缓存在本人的浏览器里。
 	w.Header().Set("Cache-Control", "private, max-age=604800, immutable")
-	w.Header().Set("Content-Type", "image/jpeg")
 	if kind != kindOriginal {
+		w.Header().Set("Content-Type", "image/jpeg")
 		http.ServeContent(w, r, "", info.ModTime(), f)
 		return
 	}
+	// 原图保持上传时的格式，上传时已让文件名的扩展名和格式一致。
+	w.Header().Set("Content-Type", mimeOf(p.Name))
 	disposition := "attachment"
 	inline := r.URL.Query().Get("inline") == "1"
 	if inline {

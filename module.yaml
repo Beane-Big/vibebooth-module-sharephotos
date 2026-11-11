@@ -4,7 +4,7 @@ id: sharephotos          # 全局唯一，也是网址前缀 /apps/sharephotos/ 
 name: "照片分享"
 description: "把成片发给家人：生成链接，打开就能看大图、下载原图，不用注册"
 icon: icon.svg
-version: 0.7.0           # 发布新版本前改大
+version: 0.8.0           # 发布新版本前改大
 services:                # 哪个容器接哪个网址前缀，安装器据此生成网关路由
   frontend: {port: 80}   # 容器 sharephotos-frontend → /apps/sharephotos/
   backend: {port: 8000}  # 容器 sharephotos-backend → /api/sharephotos/，健康检查 /api/sharephotos/health

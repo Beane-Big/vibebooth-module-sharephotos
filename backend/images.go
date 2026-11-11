@@ -23,7 +23,7 @@ const (
 	maxPixels = 100_000_000
 )
 
-// Meta 是从 JPEG 的 EXIF 里读出来的信息。
+// Meta 是从照片的 EXIF 里读出来的信息。
 type Meta struct {
 	Orientation int        // 1–8，没有时为 1
 	TakenAt     *time.Time // 拍摄时间（DateTimeOriginal），按相机时间原样记，不带时区
@@ -106,16 +106,6 @@ func cleanJPEG(r io.Reader, w io.Writer) (Meta, error) {
 			return meta, bw.Flush()
 		}
 	}
-}
-
-// readMeta 只读出方向和拍摄时间，不改文件。
-func readMeta(path string) (Meta, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return Meta{Orientation: 1}, err
-	}
-	defer f.Close()
-	return cleanJPEG(f, io.Discard)
 }
 
 // tiff 是 EXIF 里的 TIFF 结构，按字节序读写，所有读取都检查边界。
@@ -218,32 +208,43 @@ func scrubExif(b []byte, meta *Meta) bool {
 	return true
 }
 
-// imageConfig 读出 JPEG 的尺寸，用来在上传时挡掉太大的图。
+// imageConfig 读出照片的尺寸，用来在上传时挡掉太大的图。HEIF 的尺寸由 cleanHEIF 读出。
 func imageConfig(path string) (image.Config, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return image.Config{}, err
 	}
 	defer f.Close()
-	cfg, err := jpeg.DecodeConfig(f)
+	cfg, _, err := image.DecodeConfig(f)
 	if err != nil {
-		return cfg, errNotJPEG
+		return cfg, errors.New("照片读不出来，可能已经损坏")
 	}
+	return cfg, checkPixels(cfg)
+}
+
+// checkPixels 挡掉像素太多的图。
+func checkPixels(cfg image.Config) error {
 	if cfg.Width*cfg.Height > maxPixels {
-		return cfg, fmt.Errorf("图片太大（%d×%d），最多 1 亿像素", cfg.Width, cfg.Height)
+		return fmt.Errorf("图片太大（%d×%d），最多 1 亿像素", cfg.Width, cfg.Height)
 	}
-	return cfg, nil
+	if cfg.Width <= 0 || cfg.Height <= 0 {
+		return errors.New("照片读不出尺寸，可能已经损坏")
+	}
+	return nil
 }
 
 // makeDerivatives 从原图生成预览图和缩略图，按 EXIF 方向转正，返回转正后原图的宽高。
 func makeDerivatives(origPath, previewPath, thumbPath string) (int, int, error) {
-	meta, _ := readMeta(origPath)
-	f, err := os.Open(origPath)
+	f, meta, err := readMeta(origPath)
 	if err != nil {
 		return 0, 0, err
 	}
-	src, err := jpeg.Decode(f)
-	f.Close()
+	var src image.Image
+	if f == formatHEIF {
+		src, err = decodeHEIF(origPath)
+	} else {
+		src, err = decodeFile(origPath)
+	}
 	if err != nil {
 		return 0, 0, fmt.Errorf("解码失败：%w", err)
 	}
@@ -260,6 +261,16 @@ func makeDerivatives(origPath, previewPath, thumbPath string) (int, int, error) 
 		w, h = h, w
 	}
 	return w, h, nil
+}
+
+func decodeFile(path string) (image.Image, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	img, _, err := image.Decode(bufio.NewReader(f))
+	return img, err
 }
 
 // scaleTo 等比缩小到长边不超过 size；本来就小的图只转成 RGBA，不放大。

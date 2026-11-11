@@ -193,3 +193,9 @@ export async function copyText(text: string) {
     return ok;
   }
 }
+
+// 原图保持上传时的格式，按扩展名给文件标上类型，iOS 存到相册时靠它认出是照片。
+const photoTypes: Record<string, string> = { png: "image/png", webp: "image/webp", heic: "image/heic", heif: "image/heif", gif: "image/gif" };
+export function photoType(name: string) {
+  return photoTypes[name.split(".").pop()?.toLowerCase() ?? ""] ?? "image/jpeg";
+}

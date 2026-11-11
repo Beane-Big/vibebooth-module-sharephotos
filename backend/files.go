@@ -38,6 +38,7 @@ func (f *Files) albumDir(albumID int64) string {
 	return filepath.Join(f.dir, "albums", fmt.Sprint(albumID))
 }
 
+// path 是照片文件的位置。原图不管什么格式都存成 <id>.jpg（老数据就是这样），格式按文件内容判断；预览图和缩略图都是 JPEG。
 func (f *Files) path(albumID, photoID int64, kind string) string {
 	name := fmt.Sprintf("%d.jpg", photoID)
 	if kind != kindOriginal {

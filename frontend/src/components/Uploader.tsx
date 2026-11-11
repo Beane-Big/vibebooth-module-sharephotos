@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ApiError, formatBytes, uploadPhoto, type Photo } from "../api";
-import { CloseIcon, UploadIcon } from "../icons";
+import { CloseIcon, PlusIcon } from "../icons";
 import { speedText, useSpeed } from "./speed";
 
 type Item = {
@@ -16,8 +16,13 @@ const parallel = 2;
 
 let nextId = 1;
 
+// 能上传的格式：手机自己能打开的几种，.hif 是相机存的 HEIF。格式最终由后端按文件内容判断。
+const photoExt = /\.(jpe?g|png|webp|heic|heif|hif|gif)$/i;
+// 选照片时列出这些格式；写上 image/heic，iPhone 才会传原来的 HEIC，而不是先转成 JPEG。
+const photoAccept = ".jpg,.jpeg,.png,.webp,.heic,.heif,.hif,.gif,image/jpeg,image/png,image/webp,image/heic,image/heif,image/gif";
+
 // useUploader 管上传队列：一次可以选一两百张，排队上传，每张传完就交给后端去掉位置信息、生成预览图；
-// 没传成的留在列表里，可以重试。相册页右上角的“导入”和拖到页面上的照片都交给它。
+// 没传成的留在列表里，可以重试。相册页右上角的“上传”和拖到页面上的照片都交给它。
 export function useUploader(albumId: number, onUploaded: (p: Photo) => void) {
   const [items, setItems] = useState<Item[]>([]);
   const [error, setError] = useState("");
@@ -56,12 +61,12 @@ export function useUploader(albumId: number, onUploaded: (p: Photo) => void) {
 
   function add(list: FileList | null | undefined) {
     const picked = Array.from(list ?? []);
-    const jpegs = picked.filter((f) => /\.jpe?g$/i.test(f.name));
-    const skipped = picked.filter((f) => !jpegs.includes(f)).map((f) => f.name);
-    setError(skipped.length ? `只能上传 JPEG（.jpg）照片，没有加入：${skipped.join("、")}` : "");
-    if (!jpegs.length) return;
+    const photos = picked.filter((f) => photoExt.test(f.name));
+    const skipped = picked.filter((f) => !photos.includes(f)).map((f) => f.name);
+    setError(skipped.length ? `只能上传 JPEG、PNG、WebP、HEIC/HEIF、GIF 照片，没有加入：${skipped.join("、")}` : "");
+    if (!photos.length) return;
     // 上一批都传完了，开始新的一批时把旧的记录清掉。
-    const fresh = jpegs.map((file): Item => ({ id: nextId++, file, status: "waiting", progress: 0 }));
+    const fresh = photos.map((file): Item => ({ id: nextId++, file, status: "waiting", progress: 0 }));
     setItems((old) => [...(old.every((o) => o.status === "done") ? [] : old), ...fresh]);
     queue.current.push(...fresh);
     pump();
@@ -93,23 +98,23 @@ export function useUploader(albumId: number, onUploaded: (p: Photo) => void) {
 
 export type Uploads = ReturnType<typeof useUploader>;
 
-// ImportButton 是右上角的“导入”：点了打开选照片。
-export function ImportButton({ uploads }: { uploads: Uploads }) {
+// UploadButton 是右上角的“上传”：点了打开选照片。
+export function UploadButton({ uploads }: { uploads: Uploads }) {
   return (
     <label className="pill">
       <input
         className="sr-only"
         type="file"
-        aria-label="导入照片"
-        accept=".jpg,.jpeg,image/jpeg"
+        aria-label="上传照片"
+        accept={photoAccept}
         multiple
         onChange={(e) => {
           uploads.add(e.target.files);
           e.target.value = "";
         }}
       />
-      <UploadIcon />
-      <span className="pill-text">导入</span>
+      <PlusIcon />
+      <span className="pill-text">上传</span>
     </label>
   );
 }
@@ -170,7 +175,7 @@ export function UploadStatus({ uploads }: { uploads: Uploads }) {
   );
 }
 
-// useDropPhotos 让照片可以直接拖到整个页面上导入，拖着经过时页面显示一个提示框。
+// useDropPhotos 让照片可以直接拖到整个页面上上传，拖着经过时页面显示一个提示框。
 export function useDropPhotos(uploads: Uploads, enabled: boolean) {
   const [over, setOver] = useState(false);
   const latest = useRef(uploads);

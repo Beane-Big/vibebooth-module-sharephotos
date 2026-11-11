@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
-import { downloadMinutes, formatBytes, inWeChat, onIOS, type GalleryUrls, type Photo } from "../api";
+import { downloadMinutes, formatBytes, inWeChat, onIOS, photoType, type GalleryUrls, type Photo } from "../api";
 import { CloseIcon, DownloadIcon, NextIcon, PrevIcon } from "../icons";
 import Cards from "./Cards";
 import { DownloadPanel, useDownloader } from "./Downloader";
@@ -276,6 +276,8 @@ function Lightbox({
   }
 
   const showOriginal = original === photo.id;
+  // 动图的预览图只有第一帧，看大图时直接放原图才会动。
+  const animated = /\.gif$/i.test(photo.name);
 
   return (
     <div className="lightbox" role="dialog" aria-modal="true" aria-label={photo.name}>
@@ -291,7 +293,7 @@ function Lightbox({
       <div className="lightbox-stage" onPointerDown={down} onPointerUp={up} onPointerCancel={() => (start.current = null)}>
         <img
           key={photo.id + (showOriginal ? "-original" : "")}
-          src={showOriginal ? urls.photo(photo, "original", true) : urls.photo(photo, "preview")}
+          src={showOriginal || animated ? urls.photo(photo, "original", true) : urls.photo(photo, "preview")}
           alt={photo.name}
           draggable={false}
         />
@@ -382,7 +384,7 @@ function SaveToPhotos({ photo, urls }: { photo: Photo; urls: GalleryUrls }) {
     try {
       const res = await fetch(urls.photo(photo, "original"));
       if (!res.ok) throw new Error();
-      const f = new File([await res.blob()], photo.name, { type: "image/jpeg" });
+      const f = new File([await res.blob()], photo.name, { type: photoType(photo.name) });
       setFile(f);
       await share(f);
     } catch {
@@ -391,7 +393,7 @@ function SaveToPhotos({ photo, urls }: { photo: Photo; urls: GalleryUrls }) {
   }
 
   // 系统不支持分享文件（比如很旧的 iOS）时退回普通下载。
-  if (!navigator.canShare?.({ files: [new File([], photo.name, { type: "image/jpeg" })] }))
+  if (!navigator.canShare?.({ files: [new File([], photo.name, { type: photoType(photo.name) })] }))
     return (
       <a className="button" href={urls.photo(photo, "original")} download>
         <DownloadIcon />

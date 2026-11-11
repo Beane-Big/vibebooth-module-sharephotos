@@ -14,7 +14,7 @@ import {
   type Photo,
 } from "../api";
 import Gallery from "../components/Gallery";
-import { ImportButton, UploadStatus, useDropPhotos, useUploader } from "../components/Uploader";
+import { UploadButton, UploadStatus, useDropPhotos, useUploader } from "../components/Uploader";
 import { BackIcon, LinkIcon, SettingsIcon } from "../icons";
 
 // 一个相册的页面。所有能看的人都能看照片、下载原图；上传者本人还能上传照片。
@@ -122,7 +122,7 @@ export default function Album({ id, settings = false }: { id: number; settings?:
     );
   return (
     <main className="content wide stack">
-      {dropping && <div className="drop-overlay">松开就导入这些照片</div>}
+      {dropping && <div className="drop-overlay">松开就上传这些照片</div>}
       <Gallery
         photos={detail.photos}
         urls={albumUrls(a.id)}
@@ -141,7 +141,7 @@ export default function Album({ id, settings = false }: { id: number; settings?:
                 <LinkIcon />
                 <span className="pill-text">{copied === "ok" ? "已复制" : "复制分享链接"}</span>
               </button>
-              <ImportButton uploads={uploads} />
+              <UploadButton uploads={uploads} />
               <a className="pill" href={albumPath(id) + "/settings/"} aria-label="设置">
                 <SettingsIcon />
                 <span className="pill-text">设置</span>
@@ -151,7 +151,7 @@ export default function Album({ id, settings = false }: { id: number; settings?:
         }
         meta={[!a.mine && a.ownerName && `${a.ownerName} 分享`, a.expired ? "链接已到期" : `${formatDate(a.expiresAt)}前有效`]}
         empty={
-          <p className="card muted">{a.mine ? "还没有照片，点右上角“导入”，或者把照片拖到这个页面上。" : "这个相册里还没有照片。"}</p>
+          <p className="card muted">{a.mine ? "还没有照片，点右上角“上传”，或者把照片拖到这个页面上。" : "这个相册里还没有照片。"}</p>
         }
       >
         {a.note && <p className="note">{a.note}</p>}
